@@ -1,9 +1,6 @@
-# microbit-v2-samples
+# microbit-v2-BirdBrain-BLE
 
-This repository is provides the tooling needed to compile a C/C++ CODAL program for the micro:bit v2 and produce a HEX file that can be downloaded to the device.
-
-## Raising Issues
-Any issues regarding the micro:bit are gathered on the [lancaster-university/codal-microbit-v2](https://github.com/lancaster-university/codal-microbit-v2) repository. Please raise yours there too.
+This repository contains the code to generate the BirdBrain BLE firmware for micro:bit V2. It is based on the micro:bit-v2-samples firmware created at lancaster-university.
 
 # Installation
 You need some open source pre-requisites to build this repo. You can either install these tools yourself, or use the docker image provided below.
