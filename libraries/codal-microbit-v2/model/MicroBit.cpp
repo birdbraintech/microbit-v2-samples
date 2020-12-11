@@ -149,7 +149,7 @@ MicroBit::MicroBit() :
   * @note This method must be called before user code utilises any functionality
   *       contained within the GenuinoZero class.
   */
-int MicroBit::init()
+int MicroBit::init(ManagedString bbDevName)
 {
     if (status & DEVICE_INITIALIZED)
         return DEVICE_NOT_SUPPORTED;
@@ -229,19 +229,19 @@ int MicroBit::init()
 
             // Start the BLE stack, if it isn't already running.
             
-            // BIRDBRAIN CHANGE - commented this out so that we could customize how we bring up BLE
+            // BIRDBRAIN CHANGE - commented this out so that we could customize how we bring up BLE, and we don't do pairing
             //bleManager.init( ManagedString( microbit_friendly_name()), getSerial(), messageBus, storage, true);
             
             // Enter pairing mode, using the LED matrix for any necessary pairing operations
-            bleManager.pairingMode(display, buttonA);
+            //bleManager.pairingMode(display, buttonA);
         }
     }
 #endif
 
 #if CONFIG_ENABLED(DEVICE_BLE) && CONFIG_ENABLED(MICROBIT_BLE_ENABLED)
     // Start the BLE stack, if it isn't already running.
-    // BIRDBRAIN CHANGE - commented this out so that we could customize how we bring up BLE
-    //bleManager.init( ManagedString( microbit_friendly_name()), getSerial(), messageBus, storage, false);
+    // BIRDBRAIN CHANGE - changed the name
+    bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
 #endif
 
     // Deschedule for a little while, just to allow for any components that finialise initialisation

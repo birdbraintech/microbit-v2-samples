@@ -73,6 +73,9 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalDmesg.h"
 #include "nrf_log_backend_dmesg.h"
 
+// BIRDBRAIN CHANGE - Adding ble gap
+#include "ble_gap.h"
+#include <cstdio>
 
 #define MICROBIT_PAIRING_FADE_SPEED 4
 
@@ -149,7 +152,7 @@ static void microbit_ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_conte
 static void microbit_ble_pm_evt_handler(pm_evt_t const * p_evt);
 static void microbit_ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context);
 
-static void microbit_dfu_init(void);
+//static void microbit_dfu_init(void); // Not using DFU - BIRDBRAIN CHANGE
 
 static void microbit_ble_configureAdvertising( bool connectable, bool discoverable, bool whitelist, uint16_t interval_ms, int timeout_seconds);
 
@@ -157,7 +160,8 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
 static void microbit_ble_configureAdvertising( bool connectable, bool discoverable, bool whitelist, uint16_t interval_ms, int timeout_seconds,
                                                uint8_t *frameData, uint16_t frameSize);
 #endif
-
+// BIRDBRAIN CHANGE - added this helper function
+char convert_ascii(uint8_t input);
 
 /**
  * Constructor.
@@ -218,7 +222,7 @@ MicroBitBLEManager *MicroBitBLEManager::getInstance()
   * Post constructor initialisation method as the BLE stack cannot be brought
   * up in a static context.
   *
-  * @param deviceName The name used when advertising
+  * @param deviceName The name used when advertising - BIRDBRAIN CHANGE - now just the prefix of the BirdBrain device to be used (MB, FN, HB)
   * @param serialNumber The serial number exposed by the device information service
   * @param messageBus An instance of an EventModel, used during pairing.
   * @param keyValuestorage An instance of a MicroBitStorage key/value pair storage class to use to hold bonding metadata
@@ -229,7 +233,7 @@ MicroBitBLEManager *MicroBitBLEManager::getInstance()
   * @endcode
   */
 void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNumber, EventModel &messageBus, MicroBitStorage &keyValueStorage, bool enableBonding)
-{
+{   
     if ( this->status & DEVICE_COMPONENT_RUNNING)
       return;
 
@@ -259,16 +263,47 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     MICROBIT_BLE_ECHK( nrf_sdh_enable_request());
     MICROBIT_BLE_ECHK( nrf_sdh_ble_default_cfg_set( microbit_ble_CONN_CFG_TAG, &ram_start));
     
+    // BIRDBRAIN CHANGE - trying to force the gapName to follow our format (device type (HB,MB,FN) followed by last five chars of Mac address)
+    // Most of the commented out code is an attempt to get the Mac address, but we switched to using the five fix chars of the micro:bit 
+    // serial number (in hex) instead.
+    ManagedString gapName;
+    // Getting the MAC address
+ /*   fiber_sleep(1000); // wait a while for the BLE stack to load
+    ble_gap_addr_t mac;
+    MICROBIT_BLE_ECHK( sd_ble_gap_addr_get(&mac));
+*/
+    // Parsing the MAC address into a string
+
+  /*  ManagedString val1(convert_ascii(mac.addr[2]&0x0F));
+	uint8_t temp_input;
+	temp_input = (mac.addr[1]&0xF0);
+	ManagedString val2(convert_ascii(temp_input>>4));
+	//ManagedString val3(convert_ascii(mac.addr[1]&0x0F));
+    ManagedString val3(convert_ascii(0x0C));
+	temp_input = (mac.addr[0]& 0xF0);
+	//ManagedString val4(convert_ascii(temp_input>>4));
+    ManagedString val4("B");
+	ManagedString val5(convert_ascii(mac.addr[0]&0x0F));*/
+
+    // Get the serial number
+    uint32_t sn = microbit_serial_number();
+
+    // Convert the serial number to a string
+    char buffer[9];
+    sprintf(buffer,"%lX",sn); //buffer now contains sn as a null terminated string, len contains the length of the string.
+    ManagedString serialNumberAsHex(buffer);
+
+    // Put together the device Name (MB, HB, or FN) with the first five digits of the serial number
+	gapName = gapName + deviceName + serialNumberAsHex.substring(0,5); 
+
     // set fixed gap name
-    gapName = MICROBIT_BLE_MODEL;
-    if ( enableBonding || !CONFIG_ENABLED(MICROBIT_BLE_WHITELIST))
-    {
+    //gapName = MICROBIT_BLE_MODEL;
+    //if ( enableBonding || !CONFIG_ENABLED(MICROBIT_BLE_WHITELIST))
+    //{
         /*ManagedString namePrefix(" [");
         ManagedString namePostfix("]");
         gapName = gapName + namePrefix + deviceName + namePostfix;*/
-        // BIRDBRAIN CHANGE - made gapName = deviceName
-        gapName = deviceName;
-    }
+    //}
     ble_cfg_t ble_cfg;
     memset(&ble_cfg, 0, sizeof(ble_cfg));
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS( &ble_cfg.gap_cfg.device_name_cfg.write_perm);
@@ -1525,6 +1560,26 @@ static void microbit_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
         default:
             break;
     }
+}
+
+/************************************************************************/
+/**@brief 		Helper Function for converting Hex values to ASCII values
+ * @param[in] Input in hex to be converted to ASCII
+ * @return 		character which is an ascii value of the input
+ */
+ /************************************************************************/
+char convert_ascii(uint8_t input)
+{
+	char output;
+	if(input <=9)
+	{
+		output = input + 0x30;
+	}
+	else
+	{
+		output = input + 0x37;
+	}
+	return output;
 }
 
 #endif // CONFIG_ENABLED(MICROBIT_BLE_DFU_SERVICE)

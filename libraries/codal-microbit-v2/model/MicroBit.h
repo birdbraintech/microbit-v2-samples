@@ -174,7 +174,7 @@ namespace codal
             /**
              * Post constructor initialisation method.
              */
-            int init();
+            int init(ManagedString bbDevName);
 
             /**
               * Return the serial number of this device.
