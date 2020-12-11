@@ -1,7 +1,5 @@
 build
-codal-core
-codal-microbit-nrf5sdk
-codal-nrf52
+libraries
 .yotta.json
 yotta_modules
 yotta_targets
@@ -15,4 +13,4 @@ Makefile
 *.bin
 pxtapp
 buildcache.json
-*.pyc
+codal.json
