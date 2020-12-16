@@ -174,7 +174,12 @@ namespace codal
             /**
              * Post constructor initialisation method.
              */
-            int init(ManagedString bbDevName);
+            int init();
+
+            /**
+             * BIRDBRAIN CHANGE - Separate init for BLE
+             */
+            void initBLE(ManagedString bbDevName);
 
             /**
               * Return the serial number of this device.

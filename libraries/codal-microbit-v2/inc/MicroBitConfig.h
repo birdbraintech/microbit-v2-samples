@@ -251,7 +251,7 @@ extern uint32_t __data_end__;
 // This enables the standard BLE device information service.
 // Set '1' to enable.
 #ifndef MICROBIT_BLE_DEVICE_INFORMATION_SERVICE
-#define MICROBIT_BLE_DEVICE_INFORMATION_SERVICE 1
+#define MICROBIT_BLE_DEVICE_INFORMATION_SERVICE 0
 #endif
 
 // Versioning options.

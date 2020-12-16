@@ -85,10 +85,11 @@ MicroBitUARTService::MicroBitUARTService(BLEDevice &_ble, uint8_t rxBufferSize, 
                           1, rxBufferSize,
                           microbit_propWRITE | microbit_propWRITE_WITHOUT);
 
+    // BIRDBRAIN CHANGE - changed propINDICATE to propNOTIFY
     CreateCharacteristic( mbbs_cIdxTX, charUUID[ mbbs_cIdxTX],
                           txBuffer,
                           1, txBufferSize,
-                          microbit_propINDICATE);
+                          microbit_propNOTIFY);
 }
 
 

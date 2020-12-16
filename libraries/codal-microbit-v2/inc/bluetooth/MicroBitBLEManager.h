@@ -187,6 +187,12 @@ class MicroBitBLEManager : public CodalComponent
 	 */
     void idleCallback();
 
+    /** 
+    * BIRDBRAIN CHANGE - Configures advertising between stop and start
+    * This could be extended to pass parameters, but for now just uses what we need
+    */
+    void configAdvertising();
+
     /**
 	* Stops any currently running BLE advertisements
 	*/

@@ -149,7 +149,7 @@ MicroBit::MicroBit() :
   * @note This method must be called before user code utilises any functionality
   *       contained within the GenuinoZero class.
   */
-int MicroBit::init(ManagedString bbDevName)
+int MicroBit::init()
 {
     if (status & DEVICE_INITIALIZED)
         return DEVICE_NOT_SUPPORTED;
@@ -241,7 +241,7 @@ int MicroBit::init(ManagedString bbDevName)
 #if CONFIG_ENABLED(DEVICE_BLE) && CONFIG_ENABLED(MICROBIT_BLE_ENABLED)
     // Start the BLE stack, if it isn't already running.
     // BIRDBRAIN CHANGE - changed the name
-    bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
+    //bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
 #endif
 
     // Deschedule for a little while, just to allow for any components that finialise initialisation
@@ -251,6 +251,13 @@ int MicroBit::init(ManagedString bbDevName)
     sleep(10);
 
     return DEVICE_OK;
+}
+
+// BIRDBRAIN CHANGE - separated out the Bluetooth init function
+void MicroBit::initBLE(ManagedString bbDevName)
+{
+    bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
+    sleep(10);
 }
 
 /**

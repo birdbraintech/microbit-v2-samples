@@ -70,12 +70,14 @@ DEALINGS IN THE SOFTWARE.
 #include "MicroBitEventService.h"
 #include "MicroBitPartialFlashingService.h"
 
+
 #include "CodalDmesg.h"
 #include "nrf_log_backend_dmesg.h"
 
 // BIRDBRAIN CHANGE - Adding ble gap
 #include "ble_gap.h"
 #include <cstdio>
+#include "MicroBitUARTService.h"
 
 #define MICROBIT_PAIRING_FADE_SPEED 4
 
@@ -140,7 +142,7 @@ static volatile int         m_pending;
 NRF_BLE_GATT_DEF( m_gatt);
 
 
-static void const_ascii_to_utf8(ble_srv_utf8_str_t * p_utf8, const char * p_ascii);
+//static void const_ascii_to_utf8(ble_srv_utf8_str_t * p_utf8, const char * p_ascii);
 
 static void microbit_ble_for_each_connected_disconnect( uint16_t conn_handle, void *p_context);
 static void microbit_ble_for_each_connected_tx_power_set( uint16_t conn_handle, void *p_context);
@@ -152,7 +154,7 @@ static void microbit_ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_conte
 static void microbit_ble_pm_evt_handler(pm_evt_t const * p_evt);
 static void microbit_ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context);
 
-//static void microbit_dfu_init(void); // Not using DFU - BIRDBRAIN CHANGE
+//static void microbit_dfu_init(void);
 
 static void microbit_ble_configureAdvertising( bool connectable, bool discoverable, bool whitelist, uint16_t interval_ms, int timeout_seconds);
 
@@ -160,8 +162,13 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
 static void microbit_ble_configureAdvertising( bool connectable, bool discoverable, bool whitelist, uint16_t interval_ms, int timeout_seconds,
                                                uint8_t *frameData, uint16_t frameSize);
 #endif
-// BIRDBRAIN CHANGE - added this helper function
-char convert_ascii(uint8_t input);
+
+// BIRDBRAIN CHANGE
+#define UART_BASE_UUID { 0x6e, 0x40, 0x00, 0x00, 0xb5, 0xa3, 0xf3, 0x93, 0xe0, 0xa9, 0xe5, 0x0e, 0x24, 0xdc, 0xca, 0x9e } 
+#define UART_SERVICE_ID 0x0001 // Nordic service ID
+
+ble_uuid_t        service_uuid;
+ble_uuid128_t     base_uuid = UART_BASE_UUID;
 
 /**
  * Constructor.
@@ -290,13 +297,14 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
 
     // Convert the serial number to a string
     char buffer[9];
-    sprintf(buffer,"%lX",sn); //buffer now contains sn as a null terminated string, len contains the length of the string.
+    sprintf(buffer,"%lX",sn); //buffer now contains sn as a null terminated string
     ManagedString serialNumberAsHex(buffer);
+    uint8_t serial_length = serialNumberAsHex.length();
 
-    // Put together the device Name (MB, HB, or FN) with the first five digits of the serial number
-	gapName = gapName + deviceName + serialNumberAsHex.substring(0,5); 
+    // Put together the device Name (MB, HB, or FN) with the last five digits of the serial number
+	gapName = gapName + deviceName + serialNumberAsHex.substring(serial_length-5,serial_length); 
 
-    // set fixed gap name
+    // set fixed gap name - lancaster U code
     //gapName = MICROBIT_BLE_MODEL;
     //if ( enableBonding || !CONFIG_ENABLED(MICROBIT_BLE_WHITELIST))
     //{
@@ -498,8 +506,17 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     (void)messageBus;
 #endif
 
-    servicesChanged();
     
+    servicesChanged();
+ //   new MicroBitUARTService( *this, 32, 32);
+
+    /*service_uuid.uuid = UART_SERVICE_ID; // Nordic UART service
+    MICROBIT_BLE_ECHK( sd_ble_uuid_vs_add(&base_uuid, &service_uuid.type));
+    MICROBIT_BLE_ECHK( sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY,
+                                        &service_uuid,
+                                        &p_our_service->service_handle));
+*/
+
     // Setup advertising.
     microbit_ble_configureAdvertising( connectable, discoverable, whitelist,
                                        MICROBIT_BLE_ADVERTISING_INTERVAL, MICROBIT_BLE_ADVERTISING_TIMEOUT);
@@ -525,7 +542,7 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
 #if CONFIG_ENABLED(MICROBIT_BLE_WHITELIST)
     if ( getBondCount() > 0)
 #endif
-        advertise();
+    advertise();
 
     this->status |= DEVICE_COMPONENT_RUNNING;
 }
@@ -699,6 +716,15 @@ void MicroBitBLEManager::stopAdvertising()
     MICROBIT_DEBUG_DMESG( "stopAdvertising");
     MICROBIT_BLE_ECHK( sd_ble_gap_adv_stop( m_adv_handle));
 }
+
+/** 
+ * BIRDBRAIN CHANGE - Configures advertising between stop and start
+ * This could be extended to pass parameters, but for now just uses what we need
+ */
+void MicroBitBLEManager::configAdvertising()
+{
+    microbit_ble_configureAdvertising( true /*connectable*/, true /*discoverable*/, false /*whitelist*/, MICROBIT_BLE_ADVERTISING_INTERVAL, MICROBIT_BLE_ADVERTISING_TIMEOUT);
+} 
 
 
 /**
@@ -1164,6 +1190,16 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
     MICROBIT_DEBUG_DMESG( "configureAdvertising connectable %d, discoverable %d", (int) connectable, (int) discoverable);
     MICROBIT_DEBUG_DMESG( "whitelist %d, interval_ms %d, timeout_seconds %d", (int) whitelist, (int) interval_ms, (int) timeout_seconds);
 
+    // BIRDBRAIN CHANGE - added the serial service UUID for advertising
+    //ble_uuid_t                      uart_uuid[] = {{UART_SERVICE_ID, service_uuid.type}};  /**< Universally unique service identifier for uart service. */ 
+    //ble_advdata_manuf_data_t manuf_data;
+    /*ble_advdata_t          scanrsp;
+    memset(&scanrsp, 0, sizeof(scanrsp));
+    scanrsp.uuids_complete.uuid_cnt = sizeof(uart_uuid) / sizeof(uart_uuid[0]);
+    scanrsp.uuids_complete.p_uuids  = uart_uuid;
+   // memset(&manuf_data, 0, sizeof(manuf_data));
+   // manuf_data.company_identifier = 0x5555;*/
+
     ble_gap_adv_params_t    gap_adv_params;
     memset( &gap_adv_params, 0, sizeof( gap_adv_params));
     gap_adv_params.properties.type  = connectable
@@ -1182,8 +1218,13 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
     memset( &gap_adv_data, 0, sizeof( gap_adv_data));
     gap_adv_data.adv_data.p_data    = m_enc_advdata;
     gap_adv_data.adv_data.len       = BLE_GAP_ADV_SET_DATA_SIZE_MAX;
+  //  gap_adv_data.scan_rsp_data.p_data = uart_uuid;
+  //  gap_adv_data.scan_rsp_data.len = sizeof(uart_uuid);
+    
     MICROBIT_BLE_ECHK( ble_advdata_encode( p_advdata, gap_adv_data.adv_data.p_data, &gap_adv_data.adv_data.len));
     NRF_LOG_HEXDUMP_INFO( gap_adv_data.adv_data.p_data, gap_adv_data.adv_data.len);
+    // BIRDBRAIN CHANGE - Adding Scan Response data
+    //MICROBIT_BLE_ECHK( ble_advdata_encode(&scanrsp,gap_adv_data.scan_rsp_data.p_data, &gap_adv_data.scan_rsp_data.len));
     MICROBIT_BLE_ECHK( sd_ble_gap_adv_set_configure( &m_adv_handle, &gap_adv_data, &gap_adv_params));
 }
 
@@ -1194,9 +1235,10 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
     ble_advdata_t advdata;
     memset( &advdata, 0, sizeof( advdata));
     advdata.name_type = BLE_ADVDATA_FULL_NAME;
-    advdata.flags     = !whitelist && discoverable
+    advdata.flags     = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE; // BIRDBRAIN CHANGE - for clarity
+                 /*       !whitelist && discoverable
                       ? BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED | BLE_GAP_ADV_FLAG_LE_GENERAL_DISC_MODE
-                      : BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;
+                      : BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;*/
             
     microbit_ble_configureAdvertising( connectable, discoverable, whitelist, interval_ms, timeout_seconds, &advdata);
 }
@@ -1389,14 +1431,14 @@ static void microbit_ble_pm_evt_handler(pm_evt_t const * p_evt)
     }
 }
 
-
+/*
 static void const_ascii_to_utf8(ble_srv_utf8_str_t * p_utf8, const char * p_ascii)
 {
     // ble_srv_ascii_to_utf8() doesn't check for p_ascii == NULL;
     // cast away const or allocate temporary buffer?
     p_utf8->p_str  = (uint8_t *)p_ascii;
     p_utf8->length = p_ascii ? (uint16_t)strlen(p_ascii) : 0;
-}
+}*/
 
 
 static void microbit_ble_for_each_connected_disconnect( uint16_t conn_handle, void * /*p_context*/)
@@ -1560,26 +1602,6 @@ static void microbit_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
         default:
             break;
     }
-}
-
-/************************************************************************/
-/**@brief 		Helper Function for converting Hex values to ASCII values
- * @param[in] Input in hex to be converted to ASCII
- * @return 		character which is an ascii value of the input
- */
- /************************************************************************/
-char convert_ascii(uint8_t input)
-{
-	char output;
-	if(input <=9)
-	{
-		output = input + 0x30;
-	}
-	else
-	{
-		output = input + 0x37;
-	}
-	return output;
 }
 
 #endif // CONFIG_ENABLED(MICROBIT_BLE_DFU_SERVICE)
