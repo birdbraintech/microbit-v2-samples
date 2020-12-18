@@ -256,8 +256,7 @@ int MicroBit::init()
 // BIRDBRAIN CHANGE - separated out the Bluetooth init function
 void MicroBit::initBLE(ManagedString bbDevName)
 {
-    bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
-    sleep(10);
+    return bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
 }
 
 /**

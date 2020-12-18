@@ -45,18 +45,16 @@ main()
     spiInit();   // Turn on SPI
     ManagedString bbDevName = whichDevice(); // Get our name prefix - BB, FN, or MB - depending on what we are attached to
     
-    // Initialize BLE based on this prefix. The init BLE function has been changed from the standard CODAL
     uBit.initBLE(bbDevName);
-
     // Figure out what we are called, start flashing our initials
     getInitials_fancyName();
 
     // Start up a UART service
-    bleuart = new MicroBitUARTService(*uBit.ble, 32, 32);
+    //bleuart = new MicroBitUARTService(*uBit.ble, 32, 32);
     uBit.ble->setTransmitPower(7); 
-    //uBit.ble->stopAdvertising();
-    //uBit.ble->configAdvertising();
-    uBit.ble->advertise();
+    /*uBit.ble->stopAdvertising();
+    uBit.ble->configAdvertising();
+    uBit.ble->advertise();*/
     
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_CONNECTED, onConnected);
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_DISCONNECTED, onDisconnected);

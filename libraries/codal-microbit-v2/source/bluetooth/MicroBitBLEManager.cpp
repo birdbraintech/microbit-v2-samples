@@ -74,9 +74,7 @@ DEALINGS IN THE SOFTWARE.
 #include "CodalDmesg.h"
 #include "nrf_log_backend_dmesg.h"
 
-// BIRDBRAIN CHANGE - Adding ble gap
-#include "ble_gap.h"
-#include <cstdio>
+// BIRDBRAIN CHANGE - Adding uart service to make registration possible
 #include "MicroBitUARTService.h"
 
 #define MICROBIT_PAIRING_FADE_SPEED 4
@@ -136,8 +134,26 @@ MicroBitBLEManager *MicroBitBLEManager::manager = NULL; // Singleton reference t
 static int                  m_power         = MICROBIT_BLE_DEFAULT_TX_POWER;
 static uint8_t              m_adv_handle    = BLE_GAP_ADV_SET_HANDLE_NOT_SET;
 static uint8_t              m_enc_advdata[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
-
 static volatile int         m_pending;
+
+// BIRDBRAIN CHANGE - Added the scan response data and struct def here
+static uint8_t              m_enc_scan_response_data[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
+
+
+static ble_gap_adv_data_t gap_adv_data =
+{
+    .adv_data =
+    {
+        .p_data = m_enc_advdata,
+        .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX
+    },
+    .scan_rsp_data =
+    {
+        .p_data = m_enc_scan_response_data,
+        .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX
+
+    }
+};
 
 NRF_BLE_GATT_DEF( m_gatt);
 
@@ -164,11 +180,9 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
 #endif
 
 // BIRDBRAIN CHANGE
-#define UART_BASE_UUID { 0x6e, 0x40, 0x00, 0x00, 0xb5, 0xa3, 0xf3, 0x93, 0xe0, 0xa9, 0xe5, 0x0e, 0x24, 0xdc, 0xca, 0x9e } 
 #define UART_SERVICE_ID 0x0001 // Nordic service ID
 
-ble_uuid_t        service_uuid;
-ble_uuid128_t     base_uuid = UART_BASE_UUID;
+
 
 /**
  * Constructor.
@@ -506,10 +520,11 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     (void)messageBus;
 #endif
 
-    
+    // BirdBrain change - this seems to be the only way right now to get BLE to advertise a UART service, but we shouldn't be doing it in init
+    new MicroBitUARTService(*this, 32, 32);    
     servicesChanged();
- //   new MicroBitUARTService( *this, 32, 32);
 
+    // BIRDBRAIN CHANGE - Maybe some code that adds the service to the GATT without really starting it? Most likely not a good path.
     /*service_uuid.uuid = UART_SERVICE_ID; // Nordic UART service
     MICROBIT_BLE_ECHK( sd_ble_uuid_vs_add(&base_uuid, &service_uuid.type));
     MICROBIT_BLE_ECHK( sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY,
@@ -720,6 +735,7 @@ void MicroBitBLEManager::stopAdvertising()
 /** 
  * BIRDBRAIN CHANGE - Configures advertising between stop and start
  * This could be extended to pass parameters, but for now just uses what we need
+ * Essentially, it changes the advertising data to add the UART
  */
 void MicroBitBLEManager::configAdvertising()
 {
@@ -1185,20 +1201,11 @@ void MicroBitBLEManager::servicesChanged()
  */
 static void microbit_ble_configureAdvertising( bool connectable, bool discoverable, bool whitelist,
                                                uint16_t interval_ms, int timeout_seconds,
-                                               ble_advdata_t *p_advdata)
+                                               ble_advdata_t *p_advdata, ble_advdata_t *p_srdata)
 {
     MICROBIT_DEBUG_DMESG( "configureAdvertising connectable %d, discoverable %d", (int) connectable, (int) discoverable);
     MICROBIT_DEBUG_DMESG( "whitelist %d, interval_ms %d, timeout_seconds %d", (int) whitelist, (int) interval_ms, (int) timeout_seconds);
 
-    // BIRDBRAIN CHANGE - added the serial service UUID for advertising
-    //ble_uuid_t                      uart_uuid[] = {{UART_SERVICE_ID, service_uuid.type}};  /**< Universally unique service identifier for uart service. */ 
-    //ble_advdata_manuf_data_t manuf_data;
-    /*ble_advdata_t          scanrsp;
-    memset(&scanrsp, 0, sizeof(scanrsp));
-    scanrsp.uuids_complete.uuid_cnt = sizeof(uart_uuid) / sizeof(uart_uuid[0]);
-    scanrsp.uuids_complete.p_uuids  = uart_uuid;
-   // memset(&manuf_data, 0, sizeof(manuf_data));
-   // manuf_data.company_identifier = 0x5555;*/
 
     ble_gap_adv_params_t    gap_adv_params;
     memset( &gap_adv_params, 0, sizeof( gap_adv_params));
@@ -1208,23 +1215,26 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
     gap_adv_params.interval         = ( 1000 * interval_ms) / 625;  // 625 us units
     if ( gap_adv_params.interval < BLE_GAP_ADV_INTERVAL_MIN) gap_adv_params.interval = BLE_GAP_ADV_INTERVAL_MIN;
     if ( gap_adv_params.interval > BLE_GAP_ADV_INTERVAL_MAX) gap_adv_params.interval = BLE_GAP_ADV_INTERVAL_MAX;
-    gap_adv_params.duration         = timeout_seconds * 100;              //10 ms units
+    gap_adv_params.duration         = 0; // BIRDBRAIN CHANGE: never time out  old code: timeout_seconds * 100;              //10 ms units
     gap_adv_params.filter_policy    = whitelist
                                     ? BLE_GAP_ADV_FP_FILTER_BOTH
                                     : BLE_GAP_ADV_FP_ANY;
     gap_adv_params.primary_phy      = BLE_GAP_PHY_1MBPS;
-                
-    ble_gap_adv_data_t  gap_adv_data;
-    memset( &gap_adv_data, 0, sizeof( gap_adv_data));
-    gap_adv_data.adv_data.p_data    = m_enc_advdata;
-    gap_adv_data.adv_data.len       = BLE_GAP_ADV_SET_DATA_SIZE_MAX;
+
+     // BIRDBRAIN CHANGE - we're making the gap_adv_data struct at the beginning of this file so that we can have scan response data
+     // All of the below is commented out as a result            
+    //ble_gap_adv_data_t  gap_adv_data;
+    //memset( &gap_adv_data, 0, sizeof( gap_adv_data));
+    //gap_adv_data.adv_data.p_data    = m_enc_advdata;
+    //gap_adv_data.adv_data.len       = BLE_GAP_ADV_SET_DATA_SIZE_MAX;
   //  gap_adv_data.scan_rsp_data.p_data = uart_uuid;
   //  gap_adv_data.scan_rsp_data.len = sizeof(uart_uuid);
     
     MICROBIT_BLE_ECHK( ble_advdata_encode( p_advdata, gap_adv_data.adv_data.p_data, &gap_adv_data.adv_data.len));
     NRF_LOG_HEXDUMP_INFO( gap_adv_data.adv_data.p_data, gap_adv_data.adv_data.len);
     // BIRDBRAIN CHANGE - Adding Scan Response data
-    //MICROBIT_BLE_ECHK( ble_advdata_encode(&scanrsp,gap_adv_data.scan_rsp_data.p_data, &gap_adv_data.scan_rsp_data.len));
+    MICROBIT_BLE_ECHK( ble_advdata_encode( p_srdata, gap_adv_data.scan_rsp_data.p_data, &gap_adv_data.scan_rsp_data.len));
+    NRF_LOG_HEXDUMP_INFO( gap_adv_data.scan_rsp_data.p_data, gap_adv_data.scan_rsp_data.len);
     MICROBIT_BLE_ECHK( sd_ble_gap_adv_set_configure( &m_adv_handle, &gap_adv_data, &gap_adv_params));
 }
 
@@ -1233,14 +1243,23 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
                                                uint16_t interval_ms, int timeout_seconds)
 {
     ble_advdata_t advdata;
+
     memset( &advdata, 0, sizeof( advdata));
     advdata.name_type = BLE_ADVDATA_FULL_NAME;
     advdata.flags     = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE; // BIRDBRAIN CHANGE - for clarity
                  /*       !whitelist && discoverable
                       ? BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED | BLE_GAP_ADV_FLAG_LE_GENERAL_DISC_MODE
                       : BLE_GAP_ADV_FLAG_BR_EDR_NOT_SUPPORTED;*/
-            
-    microbit_ble_configureAdvertising( connectable, discoverable, whitelist, interval_ms, timeout_seconds, &advdata);
+
+        // BIRDBRAIN CHANGE - added the scan response data for advertising. 
+    ble_advdata_t srdata;
+    memset(&srdata, 0, sizeof(srdata));
+    ble_uuid_t adv_uuids[] = {UART_SERVICE_ID, 0x02}; // Type is 0x02 - VENDOR BEGIN, since we use a 128 bit UUID
+    srdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
+    srdata.uuids_complete.p_uuids = adv_uuids;
+    srdata.name_type             = BLE_ADVDATA_NO_NAME; // Full name is advertised in the adv packet
+                  
+    microbit_ble_configureAdvertising( connectable, discoverable, whitelist, interval_ms, timeout_seconds, &advdata, &srdata);
 }
 
 

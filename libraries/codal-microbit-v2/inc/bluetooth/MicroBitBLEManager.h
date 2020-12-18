@@ -40,6 +40,7 @@ DEALINGS IN THE SOFTWARE.
 #include "ExternalEvents.h"
 #include "MicroBitButton.h"
 
+
 #define MICROBIT_BLE_PAIR_REQUEST 0x01
 #define MICROBIT_BLE_PAIR_COMPLETE 0x02
 #define MICROBIT_BLE_PAIR_PASSCODE 0x04
