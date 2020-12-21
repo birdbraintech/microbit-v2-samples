@@ -133,12 +133,11 @@ MicroBitBLEManager *MicroBitBLEManager::manager = NULL; // Singleton reference t
 
 static int                  m_power         = MICROBIT_BLE_DEFAULT_TX_POWER;
 static uint8_t              m_adv_handle    = BLE_GAP_ADV_SET_HANDLE_NOT_SET;
-static uint8_t              m_enc_advdata[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
 static volatile int         m_pending;
 
-// BIRDBRAIN CHANGE - Added the scan response data and struct def here
-static uint8_t              m_enc_scan_response_data[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
-
+// BIRDBRAIN CHANGE
+static uint8_t              m_enc_advdata[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
+static uint8_t              m_enc_srdata[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
 
 static ble_gap_adv_data_t gap_adv_data =
 {
@@ -146,14 +145,37 @@ static ble_gap_adv_data_t gap_adv_data =
     {
         .p_data = m_enc_advdata,
         .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX
+    },        .scan_rsp_data =
+    {
+        .p_data = m_enc_srdata,
+        .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX
+
+    }
+
+};
+
+    // BIRDBRAIN CHANGE - Added specific structs for the configAdvertising function to use
+static uint8_t              m_enc_advdata_bb[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
+static uint8_t              m_enc_srdata_bb[ BLE_GAP_ADV_SET_DATA_SIZE_MAX];
+
+//    memset( &m_enc_advdata_bb, 0, sizeof( m_enc_advdata_bb));
+//    memset( &m_enc_srdata_bb, 0, sizeof( m_enc_srdata_bb));
+
+static ble_gap_adv_data_t gap_adv_data_bb =
+{
+    .adv_data =
+    {
+        .p_data = m_enc_advdata_bb,
+        .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX
     },
     .scan_rsp_data =
     {
-        .p_data = m_enc_scan_response_data,
+        .p_data = m_enc_srdata_bb,
         .len    = BLE_GAP_ADV_SET_DATA_SIZE_MAX
 
     }
 };
+
 
 NRF_BLE_GATT_DEF( m_gatt);
 
@@ -252,6 +274,7 @@ MicroBitBLEManager *MicroBitBLEManager::getInstance()
   * @code
   * bleManager.init(uBit.getName(), uBit.getSerial(), uBit.messageBus, true);
   * @endcode
+  * Major BirdBrain changes to this function - we no longer start advertising, and we're setting the initial name differently
   */
 void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNumber, EventModel &messageBus, MicroBitStorage &keyValueStorage, bool enableBonding)
 {   
@@ -306,20 +329,9 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     ManagedString val4("B");
 	ManagedString val5(convert_ascii(mac.addr[0]&0x0F));*/
 
-    // Get the serial number
-    uint32_t sn = microbit_serial_number();
-
-    // Convert the serial number to a string
-    char buffer[9];
-    sprintf(buffer,"%lX",sn); //buffer now contains sn as a null terminated string
-    ManagedString serialNumberAsHex(buffer);
-    uint8_t serial_length = serialNumberAsHex.length();
-
-    // Put together the device Name (MB, HB, or FN) with the last five digits of the serial number
-	gapName = gapName + deviceName + serialNumberAsHex.substring(serial_length-5,serial_length); 
 
     // set fixed gap name - lancaster U code
-    //gapName = MICROBIT_BLE_MODEL;
+    gapName = deviceName;
     //if ( enableBonding || !CONFIG_ENABLED(MICROBIT_BLE_WHITELIST))
     //{
         /*ManagedString namePrefix(" [");
@@ -458,10 +470,10 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
             pm_peer_delete( lowest_ranked_peer);
         }
     }
-
-    bool connectable = true;
-    bool discoverable = true;
-    bool whitelist = false;
+    // BIRDBRAIN CHANGE - commented out since advertising is commented
+    //bool connectable = true;
+    //bool discoverable = true;
+    //bool whitelist = false;
     
 #if CONFIG_ENABLED(MICROBIT_BLE_WHITELIST)
     // Configure a whitelist to filter all connection requetss from unbonded devices.
@@ -520,24 +532,15 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     (void)messageBus;
 #endif
 
-    // BirdBrain change - this seems to be the only way right now to get BLE to advertise a UART service, but we shouldn't be doing it in init
-    new MicroBitUARTService(*this, 32, 32);    
     servicesChanged();
 
-    // BIRDBRAIN CHANGE - Maybe some code that adds the service to the GATT without really starting it? Most likely not a good path.
-    /*service_uuid.uuid = UART_SERVICE_ID; // Nordic UART service
-    MICROBIT_BLE_ECHK( sd_ble_uuid_vs_add(&base_uuid, &service_uuid.type));
-    MICROBIT_BLE_ECHK( sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY,
-                                        &service_uuid,
-                                        &p_our_service->service_handle));
-*/
 
-    // Setup advertising.
-    microbit_ble_configureAdvertising( connectable, discoverable, whitelist,
-                                       MICROBIT_BLE_ADVERTISING_INTERVAL, MICROBIT_BLE_ADVERTISING_TIMEOUT);
+    // Setup advertising - or not, commented out as we update Advertising data later, after our UART service is registered
+    //microbit_ble_configureAdvertising( connectable, discoverable, whitelist,
+    //                                   MICROBIT_BLE_ADVERTISING_INTERVAL, MICROBIT_BLE_ADVERTISING_TIMEOUT);
 
     // Configure the radio at our default power level
-    setTransmitPower( MICROBIT_BLE_DEFAULT_TX_POWER);
+    //setTransmitPower( MICROBIT_BLE_DEFAULT_TX_POWER);
 
     ble_conn_params_init_t cp_init;
     memset(&cp_init, 0, sizeof(cp_init));
@@ -557,7 +560,8 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
 #if CONFIG_ENABLED(MICROBIT_BLE_WHITELIST)
     if ( getBondCount() > 0)
 #endif
-    advertise();
+    // BIRDBRAIN CHANGE - not advertising yet
+    //advertise();
 
     this->status |= DEVICE_COMPONENT_RUNNING;
 }
@@ -735,11 +739,68 @@ void MicroBitBLEManager::stopAdvertising()
 /** 
  * BIRDBRAIN CHANGE - Configures advertising between stop and start
  * This could be extended to pass parameters, but for now just uses what we need
- * Essentially, it changes the advertising data to add the UART
+ * Essentially, it changes the advertising data to add the UART, and also allows us to dynamically update the device name
  */
-void MicroBitBLEManager::configAdvertising()
+uint32_t* MicroBitBLEManager::configAdvertising(ManagedString deviceName)
 {
-    microbit_ble_configureAdvertising( true /*connectable*/, true /*discoverable*/, false /*whitelist*/, MICROBIT_BLE_ADVERTISING_INTERVAL, MICROBIT_BLE_ADVERTISING_TIMEOUT);
+
+    static uint32_t err_codes[4]; // Returns all four error codes of BLE functions called here - needed this while debugging, not needed in production
+
+    // Pointer to security mode, used by sd_ble_gap_device_name_set
+    ble_gap_conn_sec_mode_t sec_mode;
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
+
+    // Getting the special name using the micro:bit's serial number. This could be changed to the mac address if needed
+    ManagedString gapName;
+    // Get the serial number
+    uint32_t sn = microbit_serial_number();
+
+    // Convert the serial number to a string
+    char buffer[9];
+    sprintf(buffer,"%lX",sn); //buffer now contains sn as a null terminated string
+    ManagedString serialNumberAsHex(buffer);
+    uint8_t serial_length = serialNumberAsHex.length();
+
+    // Put together the device Name (MB, BB, or FN) with the last five digits of the serial number
+	gapName = gapName + deviceName + serialNumberAsHex.substring(serial_length-5,serial_length); 
+    // Setting the device name
+    err_codes[3] = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)gapName.toCharArray(), gapName.length());
+
+    ble_advdata_t advdata; // Struct to hold the advertising data
+
+    memset( &advdata, 0, sizeof( advdata));
+    advdata.name_type = BLE_ADVDATA_FULL_NAME; // Send the full device name in the advertising packet
+    advdata.flags     = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE; 
+
+    ble_advdata_t srdata; // Hold the scan response data packet for advertising
+    memset(&srdata, 0, sizeof(srdata));
+    ble_uuid_t adv_uuids[] = {UART_SERVICE_ID, 0x02}; // Type is 0x02 - VENDOR BEGIN, since we use a 128 bit UUID
+    srdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]); 
+    srdata.uuids_complete.p_uuids = adv_uuids; // Set the UUID to the location of the 128 bit UUID
+    srdata.name_type             = BLE_ADVDATA_NO_NAME; // Full name is advertised in the adv packet, don't advertise it in scan response
+
+    // Now set up the advertising parameters. This is essentially the same settings as in the vanilla configureAdvertising function, with connectable
+    // and scannable set to true, whitelisting/pairing set to false
+    ble_gap_adv_params_t    gap_adv_params;
+    memset( &gap_adv_params, 0, sizeof( gap_adv_params));
+    gap_adv_params.properties.type  = BLE_GAP_ADV_TYPE_CONNECTABLE_SCANNABLE_UNDIRECTED;
+    gap_adv_params.interval         = ( 1000 * MICROBIT_BLE_ADVERTISING_INTERVAL) / 625;  // 625 us units
+    if ( gap_adv_params.interval < BLE_GAP_ADV_INTERVAL_MIN) gap_adv_params.interval = BLE_GAP_ADV_INTERVAL_MIN;
+    if ( gap_adv_params.interval > BLE_GAP_ADV_INTERVAL_MAX) gap_adv_params.interval = BLE_GAP_ADV_INTERVAL_MAX;
+    gap_adv_params.duration         = 0; // BIRDBRAIN CHANGE: never time out  old code: timeout_seconds * 100;              //10 ms units
+    gap_adv_params.filter_policy    = BLE_GAP_ADV_FP_ANY;
+    gap_adv_params.primary_phy      = BLE_GAP_PHY_1MBPS;
+
+    // Encoding the advertising data into our gap_adv_data struct
+    err_codes[0]= ble_advdata_encode( &advdata, gap_adv_data_bb.adv_data.p_data, &gap_adv_data_bb.adv_data.len);
+    NRF_LOG_HEXDUMP_INFO( gap_adv_data_bb.adv_data.p_data, gap_adv_data_bb.adv_data.len);
+    // Adding Scan Response data to gap_adv_data
+    err_codes[1]= ble_advdata_encode( &srdata, gap_adv_data_bb.scan_rsp_data.p_data, &gap_adv_data_bb.scan_rsp_data.len);
+    NRF_LOG_HEXDUMP_INFO( gap_adv_data_bb.scan_rsp_data.p_data, gap_adv_data_bb.scan_rsp_data.len);
+    // Finally, configuring advertising data
+    err_codes[2]= sd_ble_gap_adv_set_configure( &m_adv_handle, &gap_adv_data_bb, &gap_adv_params);
+
+    return err_codes;
 } 
 
 
@@ -1221,14 +1282,6 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
                                     : BLE_GAP_ADV_FP_ANY;
     gap_adv_params.primary_phy      = BLE_GAP_PHY_1MBPS;
 
-     // BIRDBRAIN CHANGE - we're making the gap_adv_data struct at the beginning of this file so that we can have scan response data
-     // All of the below is commented out as a result            
-    //ble_gap_adv_data_t  gap_adv_data;
-    //memset( &gap_adv_data, 0, sizeof( gap_adv_data));
-    //gap_adv_data.adv_data.p_data    = m_enc_advdata;
-    //gap_adv_data.adv_data.len       = BLE_GAP_ADV_SET_DATA_SIZE_MAX;
-  //  gap_adv_data.scan_rsp_data.p_data = uart_uuid;
-  //  gap_adv_data.scan_rsp_data.len = sizeof(uart_uuid);
     
     MICROBIT_BLE_ECHK( ble_advdata_encode( p_advdata, gap_adv_data.adv_data.p_data, &gap_adv_data.adv_data.len));
     NRF_LOG_HEXDUMP_INFO( gap_adv_data.adv_data.p_data, gap_adv_data.adv_data.len);
@@ -1237,7 +1290,6 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
     NRF_LOG_HEXDUMP_INFO( gap_adv_data.scan_rsp_data.p_data, gap_adv_data.scan_rsp_data.len);
     MICROBIT_BLE_ECHK( sd_ble_gap_adv_set_configure( &m_adv_handle, &gap_adv_data, &gap_adv_params));
 }
-
 
 static void microbit_ble_configureAdvertising( bool connectable, bool discoverable, bool whitelist,
                                                uint16_t interval_ms, int timeout_seconds)
@@ -1254,9 +1306,9 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
         // BIRDBRAIN CHANGE - added the scan response data for advertising. 
     ble_advdata_t srdata;
     memset(&srdata, 0, sizeof(srdata));
-    ble_uuid_t adv_uuids[] = {UART_SERVICE_ID, 0x02}; // Type is 0x02 - VENDOR BEGIN, since we use a 128 bit UUID
+/*    ble_uuid_t adv_uuids[] = {UART_SERVICE_ID, 0x02}; // Type is 0x02 - VENDOR BEGIN, since we use a 128 bit UUID
     srdata.uuids_complete.uuid_cnt = sizeof(adv_uuids) / sizeof(adv_uuids[0]);
-    srdata.uuids_complete.p_uuids = adv_uuids;
+    srdata.uuids_complete.p_uuids = adv_uuids;*/
     srdata.name_type             = BLE_ADVDATA_NO_NAME; // Full name is advertised in the adv packet
                   
     microbit_ble_configureAdvertising( connectable, discoverable, whitelist, interval_ms, timeout_seconds, &advdata, &srdata);

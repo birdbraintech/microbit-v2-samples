@@ -238,11 +238,12 @@ int MicroBit::init()
     }
 #endif
 
-#if CONFIG_ENABLED(DEVICE_BLE) && CONFIG_ENABLED(MICROBIT_BLE_ENABLED)
+//#if CONFIG_ENABLED(DEVICE_BLE) && CONFIG_ENABLED(MICROBIT_BLE_ENABLED)
     // Start the BLE stack, if it isn't already running.
-    // BIRDBRAIN CHANGE - changed the name
-    //bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
-#endif
+    // BIRDBRAIN CHANGE - changed the name, made sure we always run this
+    ManagedString bbDevName("BB00000");
+    bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
+//#endif
 
     // Deschedule for a little while, just to allow for any components that finialise initialisation
     // as a background task, and to allow the power mamanger to repsonse to background events from the KL27
@@ -251,12 +252,6 @@ int MicroBit::init()
     sleep(10);
 
     return DEVICE_OK;
-}
-
-// BIRDBRAIN CHANGE - separated out the Bluetooth init function
-void MicroBit::initBLE(ManagedString bbDevName)
-{
-    return bleManager.init(bbDevName, getSerial(), messageBus, storage, false);
 }
 
 /**

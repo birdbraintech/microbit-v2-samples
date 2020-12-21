@@ -3,6 +3,7 @@
 #include "SpiControl.h"
 
 SPI spi(MOSI, MISO, SCK);
+uint8_t whatAmI = 0;
 
 // Initializing SPI, putting the SS pin high
 void spiInit()
@@ -77,12 +78,15 @@ ManagedString whichDevice()
 	{
 		case MICROBIT_SAMD_ID:
 			devicePrefix="MB";
+            whatAmI = A_MB;
 			break;
 		case FINCH_SAMD_ID:
 			devicePrefix="FN";
+            whatAmI = A_FINCH;
 			break;
 		case HUMMINGBIT_SAMD_ID:
 			devicePrefix="BB";
+            whatAmI = A_HB;
 			break;
         // If it was none of the above, including not 0, try one more time to get a value
 		default:
@@ -91,16 +95,20 @@ ManagedString whichDevice()
             {
                 case MICROBIT_SAMD_ID:
                     devicePrefix="MB";
+			        devicePrefix="MB";
                     break;
                 case FINCH_SAMD_ID:
                     devicePrefix="FN";
+                    whatAmI = A_FINCH;
                     break;
                 case HUMMINGBIT_SAMD_ID:
                     devicePrefix="BB";
+                    whatAmI = A_HB;
                     break;   
                 // If the value is still junk, call it a standalone micro:bit 
                 default:            
                     devicePrefix="MB";
+			        devicePrefix="MB";
         			break;
             }
             break;

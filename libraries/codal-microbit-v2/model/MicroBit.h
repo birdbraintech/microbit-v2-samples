@@ -177,11 +177,6 @@ namespace codal
             int init();
 
             /**
-             * BIRDBRAIN CHANGE - Separate init for BLE
-             */
-            void initBLE(ManagedString bbDevName);
-
-            /**
               * Return the serial number of this device.
               *
               * @return A ManagedString representing the serial number of this device.
