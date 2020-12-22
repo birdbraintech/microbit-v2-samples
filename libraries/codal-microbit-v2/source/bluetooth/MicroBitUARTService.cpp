@@ -44,7 +44,7 @@ const uint8_t  MicroBitUARTService::base_uuid[ 16] =
 { 0x6e, 0x40, 0x00, 0x00, 0xb5, 0xa3, 0xf3, 0x93, 0xe0, 0xa9, 0xe5, 0x0e, 0x24, 0xdc, 0xca, 0x9e };
 
 const uint16_t MicroBitUARTService::serviceUUID               = 0x0001;
-const uint16_t MicroBitUARTService::charUUID[ mbbs_cIdxCOUNT] = { 0x0002, 0x0003 };
+const uint16_t MicroBitUARTService::charUUID[ mbbs_cIdxCOUNT] = { 0x0003, 0x0002 }; // BIRDBRAIN CHANGE, Tx and Rx are reversed from default
 
 
 /**
@@ -89,6 +89,7 @@ MicroBitUARTService::MicroBitUARTService(BLEDevice &_ble, uint8_t rxBufferSize, 
     CreateCharacteristic( mbbs_cIdxTX, charUUID[ mbbs_cIdxTX],
                           txBuffer,
                           1, txBufferSize,
+                          //microbit_propINDICATE);
                           microbit_propNOTIFY);
 }
 
@@ -264,8 +265,8 @@ int MicroBitUARTService::send(const uint8_t *buf, int length, MicroBitSerialMode
 {
     if(length < 1 || mode == SYNC_SPINWAIT)
         return MICROBIT_INVALID_PARAMETER;
-
-    bool updatesEnabled = indicateChrValueEnabled( mbbs_cIdxTX);
+    // BIRDBRAIN CHANGE
+    bool updatesEnabled = notifyChrValueEnabled( mbbs_cIdxTX); //indicateChrValueEnabled( mbbs_cIdxTX);
 
     if( !getConnected() && !updatesEnabled)
         return MICROBIT_NOT_SUPPORTED;
@@ -299,16 +300,19 @@ int MicroBitUARTService::send(const uint8_t *buf, int length, MicroBitSerialMode
         if(mode == SYNC_SLEEP)
             fiber_wake_on_event(MICROBIT_ID_NOTIFY, MICROBIT_UART_S_EVT_TX_EMPTY);
 
-        indicateChrValue( mbbs_cIdxTX, temp, size);
+        // BirdBrain change
+        //indicateChrValue( mbbs_cIdxTX, temp, size);
+        notifyChrValue( mbbs_cIdxTX, temp, size);
 
         if(mode == SYNC_SLEEP)
             schedule();
         else
             break;
-
-        updatesEnabled = indicateChrValueEnabled( mbbs_cIdxTX);
+        // BirdBRain change
+        updatesEnabled = notifyChrValueEnabled( mbbs_cIdxTX); //indicateChrValueEnabled( mbbs_cIdxTX);
     }
-
+    // BirdBrain change - resets the buffer because we're now in notify mode, not indicate, so onConfirmation doesn't seem to be running
+    txBufferTail = txBufferHead;
     return bytesWritten;
 }
 
