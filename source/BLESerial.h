@@ -41,7 +41,6 @@ void bleSerialCommand(); // Checks what command (setAll, get firmware, etc) is c
 void assembleSensorData(); // Collects the notification data and sends it to the computer/tablet
 
 void returnFirmwareData();
-void decodeAndSetDisplay(uint8_t displayCommands[]);
 void playConnectSound();
 void playDisconnectSound();
 void flashInitials();

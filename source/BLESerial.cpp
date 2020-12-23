@@ -21,6 +21,7 @@ void onDisconnected(MicroBitEvent)
 {
     bleConnected = false;
     notifyOn = false; // in case this was not reset by the computer/tablet
+    flashOn = false; // Turning off any current message being printed to the screen
     playDisconnectSound();
     flashInitials();
 }
@@ -85,7 +86,7 @@ void bleSerialCommand()
         switch(ble_read_buff[0])
         {
             case SET_LEDARRAY:
-                decodeAndSetDisplay(ble_read_buff);
+                decodeAndSetDisplay(ble_read_buff, buff_length);
                 break;
             case SET_FIRMWARE:
                 returnFirmwareData();
@@ -97,6 +98,9 @@ void bleSerialCommand()
                 else if(ble_read_buff[1] == STOP_NOTIFY) {
                     notifyOn = false;
                 }
+                break;
+            case MICRO_IO:
+                decodeAndSetPins(ble_read_buff);
                 break;
         }
     }
@@ -127,57 +131,6 @@ void assembleSensorData()
             sense_count++;
             bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC);
         }
-    }
-}
-
-void decodeAndSetDisplay(uint8_t displayCommands[])
-{
-    if (displayCommands[1] & SYMBOL) //In this case we are going to display a symbol 
-    {
-        MicroBitImage bleImage(5,5);
-        
-        uint32_t imageVals = 0; // puts all 25 bits into a single value
-        uint8_t currentByte = 0;
-        for(int i = 2; i<6;i++)
-        {
-            currentByte = displayCommands[i];
-            imageVals   = imageVals | currentByte<<(24-8*(i-2));
-        }
-        for(int row = 0; row < 5; row++)
-        {
-            for(int col = 0; col < 5; col++)
-            {
-                if(imageVals & 0x01<<(col*5+row)) 
-                {
-                    bleImage.setPixelValue(row, col, 255);
-                }
-                else
-                {
-                    bleImage.setPixelValue(row, col, 0);
-                }
-            }
-        }
-        uBit.display.clear();
-        uBit.display.printAsync(bleImage);
-    }
-    else if(displayCommands[1] & SCROLL) // In this we will scroll a message
-    {
-        uBit.display.clear();
-        uint8_t scroll_length = displayCommands[1] - SCROLL; // This gets us the length of the message to scroll
-        if(scroll_length <= 18) // Need to protect against invalid commands
-        {
-            char scrollVals[scroll_length];
-            for(int i = 0; i < scroll_length; i++)
-            {
-                scrollVals[i] = displayCommands[i+2];
-            }
-            ManagedString scrollMsg(scrollVals);
-            uBit.display.scrollAsync(scrollMsg);
-        }
-    }
-    else // if neither of these, clear the display
-    {
-        uBit.display.clear();
     }
 }
 

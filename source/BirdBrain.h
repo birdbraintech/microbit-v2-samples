@@ -10,9 +10,11 @@ extern char initials_name[3]; // Holds our fancy name initials
 extern uint8_t whatAmI; // Holds whether the device is currently in standalone micro:bit, Finch, or Hummingbird mode 
 extern bool bleConnected; // Holds if connected over BLE
 extern bool notifyOn; // Holds if notifications are on (we are regularly sending sensor packets back)
+extern bool flashOn;
 
 #include "SpiControl.h"
 #include "Naming.h"
+#include "BBMicroBit.h"
 #include "BLESerial.h"
 
 #define RESET_PIN      1 // Pin to reset/turn off Finch - micro:bit pin 1
@@ -21,6 +23,11 @@ extern bool notifyOn; // Holds if notifications are on (we are regularly sending
 #define A_MB           0
 #define A_HB           1
 #define A_FINCH        2
+
+// Setting up BB specific events
+#define BB_ID            MICROBIT_ID_NOTIFY+1 // last defined eventId is MICROBIT_ID_NOTIFY==1023 in MicroBitComponent.h 
+#define FLASH_MSG_EVT  1
+#define MB_BUZZ_EVT    2
 
 // disabling the event service as we don't need it
 //#ifndef MICROBIT_BLE_EVENT_SERVICE

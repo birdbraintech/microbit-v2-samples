@@ -10,7 +10,14 @@
 
 MicroBit uBit;
 
-
+// Check for BLE data, execute appropriate commands, and send sensor data
+void ble_mgmt_loop() {
+    while(1) { // loop for ever
+        bleSerialCommand();   // reads the serial command and then executes on that command
+        assembleSensorData(); // assembles and sends a sensor packet
+        fiber_sleep(10);
+    }
+}
 
 int 
 main()
@@ -42,76 +49,10 @@ main()
 
     bleSerialInit(bbDevName);     // Start up a UART service and start advertising
 
-    while(1) {
-        //bleuart->read(read_buff, 1, ASYNC);
-        // Print our initials while not connected over Bluetooth
-        /*if(connected == false) {
-            printInitials();
-        } */
+    BBMicroBitInit();     // Setting up an event listener for flashing messages
 
-        bleSerialCommand();
-        assembleSensorData();
-        fiber_sleep(10);
-/*
-        if(uBit.buttonA.isPressed()) {
-            assembleSensorData();
-        }
-        if(uBit.buttonB.isPressed()) {
-            returnFirmwareData();
-        }
-
-        fiber_sleep(300);*/
-        // Example code that changes the name
-        /*
-        if (uBit.buttonA.isPressed()) {
-           uBit.ble->stopAdvertising();
-           err= uBit.ble->configAdvertising("MB");
-           
-           for(int i = 0; i < 4; i++) {
-                sprintf(buffer,"%lX",*(err+i)); //buffer now contains sn as a null terminated string
-                ManagedString serialNumberAsHex(buffer);
-                uBit.display.scroll(serialNumberAsHex);
-           }
-            uBit.ble->setTransmitPower(7); 
-            uBit.ble->advertise(); 
-        }*/
-
-        //uBit.display.scroll(read_buff[0]);
-/*
-        if (uBit.buttonA.isPressed()) {
-            printInitials();
-
-            
-            sensor_vals = spiReadHB();
-            for(int i = 0; i < 4; i ++) {
-                uBit.display.scroll(sensor_vals[i]);
-                uBit.sleep(1500);
-                uBit.display.print(" ");
-                uBit.sleep(500);
-            }
-
-        } 
-        if (uBit.buttonB.isPressed()) {
-            // Get the serial number
-            uint32_t sn = microbit_serial_number();
-
-            // Convert the serial number to a string
-            char buffer[9];
-            sprintf(buffer,"%lX",sn); //buffer now contains sn as a null terminated string
-            ManagedString serialNumberAsHex(buffer);
-            uBit.display.scroll(serialNumberAsHex);
-
-
-            bleuart->read(read_buff, 1, ASYNC);
-            uBit.display.print("B");
-            uint8_t spi_write_buff[4];
-            spi_write_buff[0] = 0xC4;
-            spi_write_buff[1] = read_buff[0];
-            spi_write_buff[2] = 0x00;
-            spi_write_buff[3] = 255-read_buff[0];
-                
-            spiWrite(spi_write_buff, 4);
-        }*/
-    }
+    create_fiber(ble_mgmt_loop);
+    release_fiber();
+    
 }
 
