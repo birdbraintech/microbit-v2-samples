@@ -11,6 +11,15 @@ extern uint8_t whatAmI; // Holds whether the device is currently in standalone m
 extern bool bleConnected; // Holds if connected over BLE
 extern bool notifyOn; // Holds if notifications are on (we are regularly sending sensor packets back)
 extern bool flashOn;
+extern int32_t leftEncoder; //Holds the running value of the left encoder
+extern int32_t rightEncoder; //Holds the running value of the right encoder
+
+extern bool leftMotorMove; // Flag to find out if the motor is currently moving
+extern bool leftMotorForwardDirection; // Flag to tell us which direction it's moving
+extern bool rightMotorMove; // Same as above, for the right motor
+extern bool rightMotorForwardDirection;
+
+
 
 #include "SpiControl.h"
 #include "Naming.h"

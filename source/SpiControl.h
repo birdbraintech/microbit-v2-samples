@@ -2,12 +2,13 @@
 #define SPICONTROL_H
 
 #include "BirdBrain.h"
+#include "BLESerial.h"
 
 // Generic write and read buffers for SPI
 //uint8_t spi_write_buff[20];
 //uint8_t spi_read_buff[20];
 
-#define WAIT_BETWEEN_BYTES 100 // 100 microseconds, maybe this can be reduced
+#define WAIT_BETWEEN_BYTES 10 // 10 microseconds, maybe this can be reduced further
 #define SS_WAIT 4 //How long to wait to put SS line low/high before/after transfer
 
 //To know what device is connected look for these
@@ -17,12 +18,12 @@
 #define UNIDENTIFIED_DEV                                25
 
 #define HB_SENSOR_LENGTH                                4
-#define FINCH_SENSOR_LENGTH                             16
+#define FINCH_SPI_SENSOR_LENGTH                         16
 
 void spiInit();
 void spiWrite(uint8_t* writeBuffer, uint8_t length);
-uint8_t* spiReadHB();
-uint8_t* spiReadFinch();
+void spiReadHB(uint8_t (&readBuffer)[SENSOR_SEND_LENGTH]);
+void spiReadFinch(uint8_t (&readBuffer)[FINCH_SPI_SENSOR_LENGTH]);
 ManagedString whichDevice();
 uint8_t readFirmwareVersion();
 

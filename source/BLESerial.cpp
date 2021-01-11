@@ -1,15 +1,29 @@
 #include "MicroBit.h"
 #include "BirdBrain.h"
 #include "BLESerial.h"
+#include "Hummingbird.h"
+#include "Finch.h"
+#include "SpiControl.h"
 
 //uint8_t ble_read_buff[BLE__MAX_PACKET_LENGTH]; // incoming commands from the tablet/computer
 //uint8_t sensor_vals[BLE__MAX_PACKET_LENGTH]; // sensor data to send to the tablet/computer
 bool bleConnected = false; // Holds if connected over BLE
 bool notifyOn = false; // Holds if notifications are being sent
+bool calibrationSuccess = false;
 MicroBitUARTService *bleuart;
 
-
 uint8_t sense_count = 0;
+
+// Sends BLE sensor data every 30 ms
+void send_ble_data()
+{
+    while(notifyOn) {
+        assembleSensorData(); // assembles and sends a sensor packet
+        fiber_sleep(30);
+    }
+    release_fiber();
+}
+
 
 void onConnected(MicroBitEvent)
 {
@@ -23,24 +37,29 @@ void onDisconnected(MicroBitEvent)
     notifyOn = false; // in case this was not reset by the computer/tablet
     flashOn = false; // Turning off any current message being printed to the screen
     playDisconnectSound();
-    flashInitials();
 }
 
 void flashInitials()
 {
     uint8_t count = 0;
-    while(!bleConnected)
+    while(1)
     {
-        // Print one of three initials
-        uBit.display.printAsync(initials_name[count]);
-        fiber_sleep(400);
-        uBit.display.clear();
-        fiber_sleep(200);
-        count++;
-        // If you're at 3, spend a longer time with display cleared so it's obvious which initial is first
-        if(count ==3)
-        {
-            fiber_sleep(500);
+        if(!bleConnected) {
+            // Print one of three initials
+            uBit.display.printAsync(initials_name[count]);
+            fiber_sleep(400);
+            uBit.display.clear();
+            fiber_sleep(200);
+            count++;
+            // If you're at 3, spend a longer time with display cleared so it's obvious which initial is first
+            if(count ==3)
+            {
+                fiber_sleep(500);
+                count = 0;
+            }
+        }
+        else {
+            fiber_sleep(1000);
             count = 0;
         }
     }
@@ -56,6 +75,8 @@ void bleSerialInit(ManagedString devName)
     // Configure advertising with the UART service added, and with our prefix added
     uBit.ble->configAdvertising(devName);
     
+    // Waiting for the BLE stack to stabilize
+    fiber_sleep(10);
     // Error checking code - uncomment if you need to check this
     //err= uBit.ble->configAdvertising(devName);
     //uint32_t *err;
@@ -71,7 +92,7 @@ void bleSerialInit(ManagedString devName)
     
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_CONNECTED, onConnected);
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_DISCONNECTED, onDisconnected);
-    flashInitials(); // Start flashing since we're disconnected
+    create_fiber(flashInitials); // Start flashing since we're disconnected
 }
 
 // Checks what command (setAll, get firmware, etc) is coming over BLE, then acts as necessary
@@ -89,11 +110,15 @@ void bleSerialCommand()
                 decodeAndSetDisplay(ble_read_buff, buff_length);
                 break;
             case SET_FIRMWARE:
+            case FINCH_SET_FIRMWARE:
                 returnFirmwareData();
+                //notifyOn = true; // hack to make BirdBlox happy
                 break;
             case NOTIFICATIONS:
+                //uBit.display.printAsync(ble_read_buff[1]);
                 if(ble_read_buff[1] == START_NOTIFY) {
                     notifyOn = true;
+                    create_fiber(send_ble_data); // Sends sensor data every 30 ms
                 }
                 else if(ble_read_buff[1] == STOP_NOTIFY) {
                     notifyOn = false;
@@ -101,6 +126,52 @@ void bleSerialCommand()
                 break;
             case MICRO_IO:
                 decodeAndSetPins(ble_read_buff);
+                break;
+            case STOP_ALL:
+                stopMB(); // Stops the LED screen and buzzer, and if a MB sets edge connector pins to inputs
+                if(whatAmI == A_HB)
+                {
+                    stopHB();
+                }
+            /*    uBit.display.print(buff_length);
+                fiber_sleep(1000);
+                for(int i = 0; i < buff_length; i++) {
+                    uBit.display.print(ble_read_buff[i]);
+                    fiber_sleep(1000);
+                }*/
+                break;
+            case SET_CALIBRATE:
+                // Turn off notifications while calibrating
+                notifyOn = false;
+                uBit.compass.calibrate();
+                calibrationSuccess = true; // = uBit.compass.isCalibrated(); // probably not necessary
+                notifyOn = true;
+                create_fiber(send_ble_data);
+                break;
+                // Print unrecognized commands for debugging
+            // Sets the Hummingbird outputs
+            case SETALL_SPI:
+                if(whatAmI == A_HB)
+                {
+                    setAllHB(ble_read_buff, buff_length);
+                }
+                break;
+            // Sets the Finch LEDs + buzzer
+            case FINCH_SETALL_LED:
+                if(whatAmI == A_FINCH)
+                {
+                    setAllFinchLEDs(ble_read_buff, buff_length);
+                }
+                break;
+            // Sets the Finch motors + LED screen, depending on mode
+            case FINCH_SETALL_MOTORS_MLED:
+                if(whatAmI == A_FINCH)
+                {
+                    setAllFinchMotorsAndLEDArray(ble_read_buff, buff_length);
+                }
+                break;    
+            default:
+                //uBit.display.printAsync(ble_read_buff[0]);
                 break;
         }
     }
@@ -116,7 +187,22 @@ void assembleSensorData()
         if(whatAmI == A_FINCH)
         {
             uint8_t sensor_vals[FINCH_SENSOR_SEND_LENGTH];
+            uint8_t spi_sensors_only[FINCH_SPI_SENSOR_LENGTH];
             memset(sensor_vals, 0, FINCH_SENSOR_SEND_LENGTH);    
+            
+            spiReadFinch(spi_sensors_only);
+            arrangeFinchSensors(spi_sensors_only, sensor_vals);
+
+            getAccelerometerValsFinch(sensor_vals);
+            getMagnetometerValsFinch(sensor_vals);
+            getButtonValsFinch(sensor_vals);
+            
+            // Probably not necessary as we get feedback from the LED screen            
+            if(calibrationSuccess)
+            {
+                sensor_vals[16] = sensor_vals[16] | 0x04;
+            }
+
             bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC);
         }
         else
@@ -124,11 +210,27 @@ void assembleSensorData()
             uint8_t sensor_vals[SENSOR_SEND_LENGTH];
             memset(sensor_vals, 0, SENSOR_SEND_LENGTH);
             // hard coding some sensor data
-            sensor_vals[0] = 255-sense_count;
-            sensor_vals[1] = 255;
-            sensor_vals[2] = 42;
-            sensor_vals[13] = sense_count;
-            sense_count++;
+            if(whatAmI == A_MB)
+            {
+                getEdgeConnectorVals(sensor_vals);
+                sensor_vals[3] = 0xFF; // no battery level reported
+            }
+            if(whatAmI == A_HB)
+            {
+                // reading Hummingbird sensors + battery level via SPI
+                spiReadHB(sensor_vals);
+            }
+            getAccelerometerVals(sensor_vals);
+            getMagnetometerVals(sensor_vals);
+            getButtonVals(sensor_vals);
+            
+            // Probably not necessary as we get feedback from the LED screen            
+            if(calibrationSuccess)
+            {
+                sensor_vals[7] = sensor_vals[7] | 0x04;
+            }
+
+            //send the data asynchronously
             bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC);
         }
     }
@@ -171,26 +273,26 @@ void playConnectSound()
     {
         uBit.io.speaker.setAnalogValue(512);
         uBit.io.speaker.setAnalogPeriodUs(3039);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogPeriodUs(1912);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogPeriodUs(1703);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogPeriodUs(1351);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogValue(0);
     }
     else 
     {
         uBit.io.P0.setAnalogValue(512);
         uBit.io.P0.setAnalogPeriodUs(3039);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogPeriodUs(1912);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogPeriodUs(1703);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogPeriodUs(1351);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogValue(0);
     }    
 }
@@ -203,26 +305,26 @@ void playDisconnectSound()
     {
         uBit.io.speaker.setAnalogValue(512);
         uBit.io.speaker.setAnalogPeriodUs(1702);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogPeriodUs(2024);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogPeriodUs(2551);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogPeriodUs(3816);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.speaker.setAnalogValue(0);
     }
     else
     {
         uBit.io.P0.setAnalogValue(512);
         uBit.io.P0.setAnalogPeriodUs(1702);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogPeriodUs(2024);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogPeriodUs(2551);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogPeriodUs(3816);
-        uBit.sleep(100);
+        fiber_sleep(100);
         uBit.io.P0.setAnalogValue(0);
     }    
 }
