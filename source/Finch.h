@@ -23,8 +23,8 @@ void stopFinch();
 // Sets all Finch LEDs in one go
 void setAllFinchLEDs(uint8_t commands[], uint8_t length);
 
-// Sets all Finch motors + the micro:bit LED array
-void setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length);
+// Sets all Finch motors + the micro:bit LED array. Returns the number of bytes that were used to set the outputs
+uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length);
 
 // Resets the Finch encoders
 void resetEncoders();

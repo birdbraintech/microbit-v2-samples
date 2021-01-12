@@ -19,7 +19,7 @@ extern bool leftMotorForwardDirection; // Flag to tell us which direction it's m
 extern bool rightMotorMove; // Same as above, for the right motor
 extern bool rightMotorForwardDirection;
 
-
+extern uint16_t sleepCounter; // Used to check if we should turn off the Finch due to lack of BLE activity
 
 #include "SpiControl.h"
 #include "Naming.h"
@@ -37,6 +37,10 @@ extern bool rightMotorForwardDirection;
 #define BB_ID            MICROBIT_ID_NOTIFY+1 // last defined eventId is MICROBIT_ID_NOTIFY==1023 in MicroBitComponent.h 
 #define FLASH_MSG_EVT  1
 #define MB_BUZZ_EVT    2
+
+// Time out for Finch to disconnect and turn off if it has not received a command. Currently set to 10 minutes
+#define FINCH_INACTIVITY_TIMEOUT                           10
+#define SLEEP_COUNTER_DISCONNECTION_THRESHOLD             (FINCH_INACTIVITY_TIMEOUT*600)
 
 // disabling the event service as we don't need it
 //#ifndef MICROBIT_BLE_EVENT_SERVICE

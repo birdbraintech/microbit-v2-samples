@@ -2,6 +2,7 @@
 #include "BirdBrain.h"
 #include "SpiControl.h"
 #include "Hummingbird.h"
+#include "Finch.h"
 #include "BLESerial.h"
 
 SPI spi(MOSI, MISO, SCK);
@@ -119,6 +120,7 @@ ManagedString whichDevice()
 		case FINCH_SAMD_ID:
 			devicePrefix="FN";
             whatAmI = A_FINCH;
+            //initFinch();
 			break;
 		case HUMMINGBIT_SAMD_ID:
 			devicePrefix="BB";
@@ -137,6 +139,7 @@ ManagedString whichDevice()
                 case FINCH_SAMD_ID:
                     devicePrefix="FN";
                     whatAmI = A_FINCH;
+                    //initFinch();
                     break;
                 case HUMMINGBIT_SAMD_ID:
                     devicePrefix="BB";

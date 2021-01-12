@@ -13,6 +13,7 @@ bool calibrationSuccess = false;
 MicroBitUARTService *bleuart;
 
 uint8_t sense_count = 0;
+uint16_t sleepCounter = 0;
 
 // Sends BLE sensor data every 30 ms
 void send_ble_data()
@@ -36,7 +37,39 @@ void onDisconnected(MicroBitEvent)
     bleConnected = false;
     notifyOn = false; // in case this was not reset by the computer/tablet
     flashOn = false; // Turning off any current message being printed to the screen
+    stopMB(); // Stops the LED screen and buzzer, and if a MB sets edge connector pins to inputs
     playDisconnectSound();
+    if(whatAmI == A_FINCH)
+    {
+        stopFinch();
+    }
+    if(whatAmI == A_HB)
+    {
+        stopHB();
+    }
+}
+
+void sleepTimer()
+{
+    // Checks if we should turn off the Finch
+    bool playDisconnectWhenTimedOut = true;
+    while(1)
+    {
+        fiber_sleep(100);
+        if(whatAmI == A_FINCH)
+        {
+            sleepCounter++;
+            if(sleepCounter > SLEEP_COUNTER_DISCONNECTION_THRESHOLD)
+            {
+                // To keep the disconnect sound from playing multiple times   
+                if(playDisconnectWhenTimedOut) {
+                    playDisconnectSound(); // play a sound to tell people we're turning off
+                    playDisconnectWhenTimedOut = false;
+                }
+                turnOffFinch();
+            }
+        }
+    }
 }
 
 void flashInitials()
@@ -93,86 +126,143 @@ void bleSerialInit(ManagedString devName)
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_CONNECTED, onConnected);
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_DISCONNECTED, onDisconnected);
     create_fiber(flashInitials); // Start flashing since we're disconnected
+    create_fiber(sleepTimer); 
 }
 
 // Checks what command (setAll, get firmware, etc) is coming over BLE, then acts as necessary
 void bleSerialCommand()
 {
     uint8_t buff_length = bleuart->rxBufferedSize(); // checking how many bytes we have in the buffer
+
+    uint8_t bytesUsed = 0;
+    bool continueReading = true;
     // Execute a command if we have data in our buffer and we're connected to a device
     if(bleConnected && (buff_length > 0))
     {
+        sleepCounter = 0; // reset the sleep counter since we have received a command
+
         uint8_t ble_read_buff[buff_length];
         bleuart->read(ble_read_buff, buff_length, ASYNC); 
-        switch(ble_read_buff[0])
+        // Loop for as long as there are unaddressed commands in the buffer
+        while(continueReading)
         {
-            case SET_LEDARRAY:
-                decodeAndSetDisplay(ble_read_buff, buff_length);
-                break;
-            case SET_FIRMWARE:
-            case FINCH_SET_FIRMWARE:
-                returnFirmwareData();
-                //notifyOn = true; // hack to make BirdBlox happy
-                break;
-            case NOTIFICATIONS:
-                //uBit.display.printAsync(ble_read_buff[1]);
-                if(ble_read_buff[1] == START_NOTIFY) {
-                    notifyOn = true;
-                    create_fiber(send_ble_data); // Sends sensor data every 30 ms
-                }
-                else if(ble_read_buff[1] == STOP_NOTIFY) {
+            // Switch on the command byte
+            switch(ble_read_buff[0])
+            {
+                case SET_LEDARRAY:
+                    decodeAndSetDisplay(ble_read_buff, buff_length);
+                    // If our command is to print a symbol, then we're using 6 bytes
+                    if(ble_read_buff[1] == SYMBOL)
+                    {
+                        bytesUsed = 6;  // 2 bytes for commands, 4 for the symbol
+                    }
+                    else 
+                    {
+                        bytesUsed =  (ble_read_buff[1] & 0x1F) + 2; // We use 2 bytes + the length of the message
+                    }
+                    break;
+                case SET_FIRMWARE:
+                    returnFirmwareData();
+                    bytesUsed = 4; // This command sends 0xCF followed by 0xFF three times
+                    break;                    
+                case FINCH_SET_FIRMWARE:
+                    returnFirmwareData();
+                    bytesUsed = 4; // This command sends 0xD4 followed by 0xFF three times
+                    break;
+                case NOTIFICATIONS:
+                    if(ble_read_buff[1] == START_NOTIFY) {
+                        notifyOn = true;
+                        create_fiber(send_ble_data); // Sends sensor data every 30 ms
+                    }
+                    else if(ble_read_buff[1] == STOP_NOTIFY) {
+                        notifyOn = false;
+                    }
+                    bytesUsed = 2; // Uses two bytes
+                    break;
+                case MICRO_IO:
+                    decodeAndSetPins(ble_read_buff);
+                    bytesUsed = 8; // This command always uses 8 bytes
+                    break;
+                case STOP_ALL:
+                    stopMB(); // Stops the LED screen and buzzer, and if a MB sets edge connector pins to inputs
+                    if(whatAmI == A_HB)
+                    {
+                        stopHB();
+                    }
+                    bytesUsed = 4; // This command sends 0xCB followed by 0xFF three times
+                    break;
+                case SET_CALIBRATE:
+                    // Turn off notifications while calibrating
                     notifyOn = false;
-                }
-                break;
-            case MICRO_IO:
-                decodeAndSetPins(ble_read_buff);
-                break;
-            case STOP_ALL:
-                stopMB(); // Stops the LED screen and buzzer, and if a MB sets edge connector pins to inputs
-                if(whatAmI == A_HB)
+                    uBit.compass.calibrate();
+                    calibrationSuccess = true; // = uBit.compass.isCalibrated(); // probably not necessary
+                    notifyOn = true; // restart notifications
+                    create_fiber(send_ble_data);
+                    bytesUsed = 4; // This command sends 0xCE followed by 0xFF three times
+                    break;
+                // Sets the Hummingbird outputs
+                case SETALL_SPI:
+                    if(whatAmI == A_HB)
+                    {
+                        setAllHB(ble_read_buff, buff_length);
+                    }
+                    bytesUsed = HB_SETALL_LENGTH; // 19 bytes right now
+                    break;
+                // Sets the Finch LEDs + buzzer
+                case FINCH_SETALL_LED:
+                    if(whatAmI == A_FINCH)
+                    {
+                        setAllFinchLEDs(ble_read_buff, buff_length);
+                    }
+                    bytesUsed = FINCH_SETALL_LENGTH; // 20 bytes
+                    break;
+                // Sets the Finch motors + LED screen, depending on mode
+                case FINCH_SETALL_MOTORS_MLED:
+                    if(whatAmI == A_FINCH)
+                    {
+                        bytesUsed = setAllFinchMotorsAndLEDArray(ble_read_buff, buff_length); // bytes used is variable
+                    }
+                    else {
+                        bytesUsed = 1; // this case should not happen
+                    }
+                    break;    
+                // Finch Stop command
+                case FINCH_STOPALL:
+                    stopMB(); // turn off LED array and buzzer
+                    stopFinch();
+                    bytesUsed = 1; // 0xDF
+                    break;
+                case FINCH_RESET_ENCODERS:
+                    resetEncoders();
+                    bytesUsed = 1; // 0xD5
+                    break;
+                default:
+                    bytesUsed = 1; // We still used one byte, even if it's garbage
+                    break;
+            }
+        
+            // Check if our buffer has another command in it - if so, attempt to execute it as well by going back through the loop
+            
+            if(buff_length > bytesUsed)
+            {
+                buff_length = buff_length - bytesUsed; // shorten the buffer length by what we've used
+                
+                // Overwrite the buffer with just what we haven't used yet
+                uint8_t ble_buff_temp[buff_length];
+                for(int i = 0; i < buff_length; i++)
                 {
-                    stopHB();
+                    ble_buff_temp[i] = ble_read_buff[bytesUsed+i];
                 }
-            /*    uBit.display.print(buff_length);
-                fiber_sleep(1000);
-                for(int i = 0; i < buff_length; i++) {
-                    uBit.display.print(ble_read_buff[i]);
-                    fiber_sleep(1000);
-                }*/
-                break;
-            case SET_CALIBRATE:
-                // Turn off notifications while calibrating
-                notifyOn = false;
-                uBit.compass.calibrate();
-                calibrationSuccess = true; // = uBit.compass.isCalibrated(); // probably not necessary
-                notifyOn = true;
-                create_fiber(send_ble_data);
-                break;
-                // Print unrecognized commands for debugging
-            // Sets the Hummingbird outputs
-            case SETALL_SPI:
-                if(whatAmI == A_HB)
-                {
-                    setAllHB(ble_read_buff, buff_length);
-                }
-                break;
-            // Sets the Finch LEDs + buzzer
-            case FINCH_SETALL_LED:
-                if(whatAmI == A_FINCH)
-                {
-                    setAllFinchLEDs(ble_read_buff, buff_length);
-                }
-                break;
-            // Sets the Finch motors + LED screen, depending on mode
-            case FINCH_SETALL_MOTORS_MLED:
-                if(whatAmI == A_FINCH)
-                {
-                    setAllFinchMotorsAndLEDArray(ble_read_buff, buff_length);
-                }
-                break;    
-            default:
-                //uBit.display.printAsync(ble_read_buff[0]);
-                break;
+                // Update the buffer array
+                memcpy(ble_read_buff, ble_buff_temp, buff_length);
+
+                bytesUsed = 1; // reset bytes used to 1 byte (we always use 1 byte) and run us through the switch statement again
+            }
+            // If not, stop the loop
+            else
+            {
+               continueReading = false;
+            }
         }
     }
 

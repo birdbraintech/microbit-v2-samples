@@ -335,43 +335,34 @@ void getAccelerometerValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH])
 // Get and convert the magnetometer values to an 8 bit Finch format - this function is probably wrong right now
 void getMagnetometerValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH])
 {
-    uint16_t convertedVal;
-    // Converting to v1 readings by inverting the sign
-    convertedVal = 65535-convertMagVal(uBit.compass.getX());
-    // Converting to 8-bit, need to be careful since we're using 2's complement
-    if(convertedVal < (32768-128))
-    {
-        convertedVal = 32768-128;
-    }
-    convertedVal = convertedVal - 32768 + 128;
-    //convertedVal = convertedVal/10; // unclear if this is still needed
-    if(convertedVal > 255)
-        convertedVal = 255;
-    sensor_vals[17] = convertedVal&0x00FF;
+    int16_t convertedVal;
 
-    convertedVal = 65535-convertMagVal(uBit.compass.getY());
-    // Converting to 8-bit, need to be careful since we're using 2's complement
-    if(convertedVal < (32768-128))
-    {
-        convertedVal = 32768-128;
-    }
-    convertedVal = convertedVal - 32768 + 128;
-    //convertedVal = convertedVal/10; // unclear if this is still needed
-    if(convertedVal > 255)
-        convertedVal = 255;
-    sensor_vals[18] = convertedVal&0x00FF;
+    convertedVal = (int16_t)(convertMagVal(uBit.compass.getX()));
+    convertedVal = -convertedVal/10;  // Converting to v1 readings by inverting the sign
+    // converting to 8 bit range
+    if(convertedVal > 127)
+        convertedVal = 127;
+    else if(convertedVal < -127)
+        convertedVal = -127;
+    sensor_vals[17] = (uint8_t)(convertedVal&0x00FF);
+
+    convertedVal = (int16_t)(convertMagVal(uBit.compass.getY())); 
+    convertedVal = -convertedVal/10;  // Converting to v1 readings by inverting the sign
+    // converting to 8 bit range
+    if(convertedVal > 127)
+        convertedVal = 127;
+    else if(convertedVal < -127)
+        convertedVal = -127;
+    sensor_vals[18] = (uint8_t)(convertedVal&0x00FF);
     
-    convertedVal = 65535-convertMagVal(uBit.compass.getZ());
-    // Converting to 8-bit, need to be careful since we're using 2's complement
-    if(convertedVal < (32768-128))
-    {
-        convertedVal = 32768-128;
-    }
-    convertedVal = convertedVal - 32768 + 128;
-    //convertedVal = convertedVal/10; // unclear if this is still needed
-    if(convertedVal > 255)
-        convertedVal = 255;
-    sensor_vals[19] = convertedVal&0x00FF;
+    convertedVal = (int16_t)(convertMagVal(uBit.compass.getZ())); 
+    convertedVal = -convertedVal/10;  // Converting to v1 readings by inverting the sign
+    // converting to 8 bit range
+    if(convertedVal > 127)
+        convertedVal = 127;
+    else if(convertedVal < -127)
+        convertedVal = -127;
+    sensor_vals[19] = (uint8_t)(convertedVal&0x00FF);
 }
 
 // Get the state of the buttons

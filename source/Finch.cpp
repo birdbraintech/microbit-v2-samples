@@ -30,7 +30,7 @@ void stopFinch()
 {
     uint8_t stopCommand[FINCH_SPI_LENGTH];
     
-    memset(stopCommand, 0x00, FINCH_SPI_LENGTH);
+    memset(stopCommand, 0xFF, FINCH_SPI_LENGTH);
     stopCommand[0] = FINCH_STOPALL;
     spiWrite(stopCommand, FINCH_SPI_LENGTH);
 }
@@ -52,9 +52,11 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
 }
 
 // Sets all Finch motors + the micro:bit LED array
-void setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
+uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
 {
     uint8_t mode;
+    uint8_t bytesUsed = 2; // we have always used at least two bytes
+    uint8_t print_length = 0; // Length of the message to print
     // Making sure we have enough data
     if(length >= 2)
     {
@@ -64,8 +66,10 @@ void setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
         switch(mode)
         {
             case PRINT:
-                commands[1] = SCROLL + (length-2); // Changing the command to one decodeAndSetDisplay understands
-                decodeAndSetDisplay(commands, length);
+                print_length = commands[1] & 0x0F; // Finding out how long the message to print is
+                commands[1] = SCROLL + print_length; // Changing the command to one decodeAndSetDisplay understands
+                bytesUsed = print_length+2; // We're using two command bytes + the message
+                decodeAndSetDisplay(commands, bytesUsed);
                 break;
             case FINCH_SYMBOL:
                 // checking that we have enough data to set the screen
@@ -73,6 +77,7 @@ void setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                 {
                     commands[1] = SYMBOL; // Changing the command to one decodeAndSetDisplay understands
                     decodeAndSetDisplay(commands, length);
+                    bytesUsed = 6;
                 }
                 break;
             case MOTORS:
@@ -80,6 +85,7 @@ void setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                 if(length >= 10)
                 {
                     moveMotor(commands);
+                    bytesUsed = 10;
                 }
                 break;
             case MOTORS_SYMBOL:
@@ -97,13 +103,15 @@ void setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                     decodeAndSetDisplay(symbolCommands, 6);
                     
                     moveMotor(commands); // safe to send the symbol commands too, they get overwritten with zeros
+                    bytesUsed = 14;
                 }
                 break;
             case MOTORS_PRINT:
                 
-                uint8_t print_length = commands[1] & 0x0F; // Finding out how long the message to print is
+                print_length = commands[1] & 0x0F; // Finding out how long the message to print is
+                bytesUsed = print_length + 10;
                 // Checking that we have enough data
-                if(length >= print_length + 10)
+                if(length >= bytesUsed)
                 {
                     // creating the print command set
                     uint8_t printCommands[print_length+2]; // The length of the array needs to be 2 bytes longer than the length of the message
@@ -120,6 +128,7 @@ void setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                 break;
         }
     }
+    return bytesUsed;
 
 }
 
@@ -136,7 +145,7 @@ void turnOffFinch()
 {
     uint8_t turnOffCommand[FINCH_SPI_LENGTH];
     
-    memset(turnOffCommand, 0x00, FINCH_SPI_LENGTH);
+    memset(turnOffCommand, 0xFF, FINCH_SPI_LENGTH);
     turnOffCommand[0] = FINCH_POWEROFF_SAMD;
 
     spiWrite(turnOffCommand, FINCH_SPI_LENGTH);       

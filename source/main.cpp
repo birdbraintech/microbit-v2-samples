@@ -5,6 +5,7 @@
 #include "SpiControl.h"
 #include "Naming.h"
 #include "Hummingbird.h"
+#include "Finch.h"
 
 #include <cstdio>
 
@@ -29,7 +30,7 @@ void check_device_loop() {
     bool update;
     ManagedString devicePrefix;
 
-    // initializing current device
+    // initializing current device to whatever it is at start up
     switch(whatAmI)
     {
         case A_MB:
@@ -38,7 +39,6 @@ void check_device_loop() {
             break;
         case A_HB:
             current_device = HUMMINGBIT_SAMD_ID;
-            initHB();
             break;
         case A_FINCH:
             current_device = FINCH_SAMD_ID;
@@ -47,11 +47,12 @@ void check_device_loop() {
     }
 
     while(1) {
-        // If you're connected to a tablet/computer, we're not changing your prefix in mid-use
+        // If you're connected to a tablet/computer, we're not changing your prefix in mid-use, so only do the following
+        // if you're not connected
         if(!bleConnected) {
-            past_device = current_device;
-            current_device = readFirmwareVersion();
-           
+            past_device = current_device; // what device do we think we are
+            current_device = readFirmwareVersion(); // what are we really?
+            // If we are not what we think, then update the device name           
             if(past_device != current_device)
             {                                
                 update = true; 
@@ -68,11 +69,13 @@ void check_device_loop() {
                     case HUMMINGBIT_SAMD_ID:
                         devicePrefix="BB";
                         whatAmI = A_HB;
+                        initHB();
                         break;
                     default: // only update if you read SPI correctly
                         update = false;
                         break;
                 }
+                // Update the GAP name over BLE
                 if(update) {
                     uBit.ble->stopAdvertising();
                     fiber_sleep(10);
@@ -89,10 +92,6 @@ void check_device_loop() {
 int 
 main()
 {
-    //bool advertising = true;
-    //uint8_t *sensor_vals;
-    //uint8_t spi_write_buff[20];
-
 
     uBit.init(); // Initializes everything but SPI
     spiInit();   // Turn on SPI
