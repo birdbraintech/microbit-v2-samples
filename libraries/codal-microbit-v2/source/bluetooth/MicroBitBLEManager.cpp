@@ -76,6 +76,7 @@ DEALINGS IN THE SOFTWARE.
 
 // BIRDBRAIN CHANGE - Adding uart service to make registration possible
 #include "MicroBitUARTService.h"
+#include "ble_gap.h" // BIRDBRAIN CHANGE - For getting the mac address during naming
 
 #define MICROBIT_PAIRING_FADE_SPEED 4
 
@@ -203,7 +204,7 @@ static void microbit_ble_configureAdvertising( bool connectable, bool discoverab
 
 // BIRDBRAIN CHANGE
 #define UART_SERVICE_ID 0x0001 // Nordic service ID
-
+char convert_ascii(uint8_t input); // convenience function
 
 
 /**
@@ -445,8 +446,9 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     // Configure for high speed mode where possible.
     ble_gap_conn_params_t   gap_conn_params;
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
-    gap_conn_params.min_conn_interval = 8;      // 10 ms
-    gap_conn_params.max_conn_interval = 16;     // 20 ms
+    // BIRDBRAIN CHANGE - setting to match V1 values
+    gap_conn_params.min_conn_interval = 6;      // 7.5 ms, this is the minimum// was 10 ms
+    gap_conn_params.max_conn_interval = 10; //16;     // 12.5 ms was 75 ms and before that 20 ms
     gap_conn_params.slave_latency     = 0;
     gap_conn_params.conn_sup_timeout  = 400;    // 4s
     MICROBIT_BLE_ECHK( sd_ble_gap_ppcp_set( &gap_conn_params));
@@ -470,10 +472,6 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
             pm_peer_delete( lowest_ranked_peer);
         }
     }
-    // BIRDBRAIN CHANGE - commented out since advertising is commented
-    //bool connectable = true;
-    //bool discoverable = true;
-    //bool whitelist = false;
     
 #if CONFIG_ENABLED(MICROBIT_BLE_WHITELIST)
     // Configure a whitelist to filter all connection requetss from unbonded devices.
@@ -534,14 +532,6 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
 
     servicesChanged();
 
-
-    // Setup advertising - or not, commented out as we update Advertising data later, after our UART service is registered
-    //microbit_ble_configureAdvertising( connectable, discoverable, whitelist,
-    //                                   MICROBIT_BLE_ADVERTISING_INTERVAL, MICROBIT_BLE_ADVERTISING_TIMEOUT);
-
-    // Configure the radio at our default power level
-    //setTransmitPower( MICROBIT_BLE_DEFAULT_TX_POWER);
-
     ble_conn_params_init_t cp_init;
     memset(&cp_init, 0, sizeof(cp_init));
     cp_init.p_conn_params                  = &gap_conn_params;
@@ -560,7 +550,7 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
 #if CONFIG_ENABLED(MICROBIT_BLE_WHITELIST)
     if ( getBondCount() > 0)
 #endif
-    // BIRDBRAIN CHANGE - not advertising yet
+    // BIRDBRAIN CHANGE - not advertising yet, need to change the GAP name first
     //advertise();
 
     this->status |= DEVICE_COMPONENT_RUNNING;
@@ -736,6 +726,27 @@ void MicroBitBLEManager::stopAdvertising()
     MICROBIT_BLE_ECHK( sd_ble_gap_adv_stop( m_adv_handle));
 }
 
+
+/************************************************************************/
+/**@brief 		Function for converting Hex values to ASCII values
+ * @param[in] Input in hex to be converted to ASCII
+ * @return 		character which is an ascii value of the input
+ */
+ /************************************************************************/
+char convert_ascii(uint8_t input)
+{
+	char output;
+	if(input <=9)
+	{
+		output = input + 0x30;
+	}
+	else
+	{
+		output = input + 0x37;
+	}
+	return output;
+}
+
 /** 
  * BIRDBRAIN CHANGE - Configures advertising between stop and start
  * This could be extended to pass parameters, but for now just uses what we need
@@ -751,7 +762,7 @@ uint32_t* MicroBitBLEManager::configAdvertising(ManagedString deviceName)
     BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
 
     // Getting the special name using the micro:bit's serial number. This could be changed to the mac address if needed
-    ManagedString gapName;
+    /*ManagedString gapName;
     // Get the serial number
     uint32_t sn = microbit_serial_number();
 
@@ -765,6 +776,30 @@ uint32_t* MicroBitBLEManager::configAdvertising(ManagedString deviceName)
 	gapName = gapName + deviceName + serialNumberAsHex.substring(serial_length-5,serial_length); 
     // Setting the device name
     err_codes[3] = sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)gapName.toCharArray(), gapName.length());
+    */
+    // Set the name using the mac address
+    char deviceNameArray[8];
+    deviceNameArray[0] = deviceName.charAt(0);
+    deviceNameArray[1] = deviceName.charAt(1);
+	ble_gap_addr_t 					mac;
+    sd_ble_gap_addr_get(&mac);
+
+	deviceNameArray[2] = convert_ascii((mac.addr[2]&0x0F));
+	
+	
+	deviceNameArray[3] = (mac.addr[1]&0xF0);
+	deviceNameArray[3] = convert_ascii(deviceNameArray[3]>>4);
+		
+	
+	deviceNameArray[4] = convert_ascii(mac.addr[1]&0x0F);
+	deviceNameArray[5] = (mac.addr[0]& 0xF0);
+	deviceNameArray[5] = convert_ascii(deviceNameArray[5]>>4);
+		
+	deviceNameArray[6] = convert_ascii(mac.addr[0]&0x0F);
+	deviceNameArray[7] = '\0';
+    sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)deviceNameArray, strlen(deviceNameArray));
+
+
 
     ble_advdata_t advdata; // Struct to hold the advertising data
 

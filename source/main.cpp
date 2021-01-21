@@ -14,9 +14,17 @@ MicroBit uBit;
 
 // Check for BLE data, execute appropriate commands, and send sensor data
 void ble_mgmt_loop() {
+    //uint8_t count = 0;
     while(1) { // loop for ever
         bleSerialCommand();   // reads the serial command and then executes on that command
-        fiber_sleep(5);
+        //fiber_sleep(1);
+        // send sensor data approx. every 30 ms
+        /*if(count > 30) {
+            assembleSensorData();
+            count = 0;
+        }
+        count++;
+        */
     }
 }
 
@@ -86,6 +94,10 @@ void check_device_loop() {
             }
         }
         fiber_sleep(1000);
+        // hack to keep this pin low, it seems to decide not to be low after some time has passed, for mysterious reasons
+        if(whatAmI == A_FINCH) {
+            uBit.io.pin[RESET_PIN].setDigitalValue(0);
+        }
     }
 }
 
@@ -98,6 +110,7 @@ main()
 
     // Set the buzzer pin low so we don't accidentally energize the Finch or HB buzzer
     uBit.io.P0.setDigitalValue(0);
+
     // Toggle the reset pin on the Finch, then hold it low
     // This happens even for HB and standalone micro:bit, as it needs to happen before we can determine device type
     uBit.io.pin[RESET_PIN].setDigitalValue(1);
@@ -110,14 +123,14 @@ main()
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
     ManagedString bbDevName = whichDevice(); 
 
-    // Figure out what we are called, start flashing our initials
-    getInitials_fancyName();
-
     // Wait for the BLE stack to stabilize before registering the UART service
     fiber_sleep(10); 
 
     // Start up a UART service and start advertising
     bleSerialInit(bbDevName);     
+
+    // Figure out what we are called, start flashing our initials
+    getInitials_fancyName();
 
     // Setting up an event listener for flashing messages and for running the buzzer
     BBMicroBitInit();     

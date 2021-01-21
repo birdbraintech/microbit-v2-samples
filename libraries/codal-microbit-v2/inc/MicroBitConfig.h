@@ -228,7 +228,7 @@ extern uint32_t __data_end__;
 
 // Define the default BLE advertising interval in ms
 #ifndef MICROBIT_BLE_ADVERTISING_INTERVAL
-#define MICROBIT_BLE_ADVERTISING_INTERVAL        50
+#define MICROBIT_BLE_ADVERTISING_INTERVAL        40 // BIRDBRAIN CHANGE - was 50
 #endif
 
 // Defines default power level of the BLE radio transmitter.
@@ -236,7 +236,7 @@ extern uint32_t __data_end__;
 // Based on trials undertaken by the BBC, the radio is normally set to a low power level
 // to best protect children's privacy.
 #ifndef MICROBIT_BLE_DEFAULT_TX_POWER
-#define MICROBIT_BLE_DEFAULT_TX_POWER           1
+#define MICROBIT_BLE_DEFAULT_TX_POWER           6 // BIRDBRAIN CHANGE - sets this to 6 to increase power, was 1
 #endif
 
 // Enable/Disable BLE Service: MicroBitDFU

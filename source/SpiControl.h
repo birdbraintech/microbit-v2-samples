@@ -8,7 +8,7 @@
 //uint8_t spi_write_buff[20];
 //uint8_t spi_read_buff[20];
 
-#define WAIT_BETWEEN_BYTES 10 // 10 microseconds, maybe this can be reduced further
+#define WAIT_BETWEEN_BYTES 4 // 10 microseconds, maybe this can be reduced further
 #define SS_WAIT 4 //How long to wait to put SS line low/high before/after transfer
 
 //To know what device is connected look for these
@@ -26,5 +26,8 @@ void spiReadHB(uint8_t (&readBuffer)[SENSOR_SEND_LENGTH]);
 void spiReadFinch(uint8_t (&readBuffer)[FINCH_SPI_SENSOR_LENGTH]);
 ManagedString whichDevice();
 uint8_t readFirmwareVersion();
+
+// Function for debugging use only
+void printFirmwareResponse();
 
 #endif

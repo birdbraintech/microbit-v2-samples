@@ -1,6 +1,7 @@
 #include "MicroBit.h"
 #include "BirdBrain.h"
 #include "Naming.h"
+#include "ble_gap.h" // needed to get the mac address
 #include <cstdio>
 
 char initials_name[3] = {'E', 'R', 'R'}; // Holds our fancy name initials
@@ -36,13 +37,26 @@ void getInitials_fancyName()
 	bool rude_word = true;
 
     // Get the last five hex digits of the serial number
-    uint32_t temp = (microbit_serial_number()&0x000FFFFF);
+    /*uint32_t temp = (microbit_serial_number()&0x000FFFFF);
 
 	uint8_t mod16 = 0;
     uint8_t top8  = 0;
     uint8_t bot6  = 0;
     uint8_t mid6  = 0;
+    uint8_t tempCount = 0;*/
+    // Use the Mac address to get the name
+    ble_gap_addr_t mac;
+    sd_ble_gap_addr_get(&mac);
+    volatile uint32_t temp = 0;
+	uint8_t mod16 = 0;
+    uint8_t top8  = 0;
+    uint8_t bot6  = 0;
+    uint8_t mid6  = 0;
     uint8_t tempCount = 0;
+    //Get the Mac Address into a 32 32 bit variable 	
+    temp  |= (uint32_t)(mac.addr[2]&0x0F) << 16;	
+	temp  |= (uint32_t)mac.addr[1] << 8;
+	temp  |= (uint32_t)mac.addr[0];
 
 	  //Divide 5 bytes into 4 regions 
 	mod16  =  temp%16;

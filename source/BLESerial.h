@@ -43,6 +43,7 @@
 #define FINCH_SENSOR_SEND_LENGTH                  20
 #define BLE__MAX_PACKET_LENGTH                    20 
 
+
 void bleSerialInit(ManagedString devName);  // Initializes the UART
 void bleSerialCommand(); // Checks what command (setAll, get firmware, etc) is coming over BLE, then acts as necessary
 void assembleSensorData(); // Collects the notification data and sends it to the computer/tablet

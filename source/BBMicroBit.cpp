@@ -75,7 +75,8 @@ void mbBuzz(MicroBitEvent)
                 else
                 {
                     uBit.io.P0.setAnalogValue(512);
-                    uBit.io.P0.setAnalogPeriodUs(buzzPeriod);                    
+                    uBit.io.P0.setAnalogPeriodUs(buzzPeriod);    
+                    uBit.io.speaker.setAnalogValue(0);                
                 }
                 elapsed = 0; //resetting elapsed time
                 localDuration = buzzDuration; //resetting the buzz duration
@@ -114,13 +115,15 @@ void BBMicroBitInit()
     messageLength = 0; 
     buzzPeriod = 0;
     buzzDuration = 0;
+        // Set the speaker low
+    uBit.io.speaker.setAnalogValue(0);
 
 }
 
 // Set the display based on the bluetooth command
 void decodeAndSetDisplay(uint8_t displayCommands[], uint8_t commandLength)
 {
-    if (displayCommands[1] & SYMBOL) //In this case we are going to display a symbol 
+    if ((displayCommands[1] & SYMBOL) && commandLength >= 6) //In this case we are going to display a symbol 
     {
         flashOn = false; // Turn of flashing the message if printing a symbol now
         MicroBitImage bleImage(5,5);
@@ -149,23 +152,25 @@ void decodeAndSetDisplay(uint8_t displayCommands[], uint8_t commandLength)
         uBit.display.clear();
         uBit.display.printAsync(bleImage);
     }
-    else if(displayCommands[1] & SCROLL) // In this state we scroll/print a message
+    else if(displayCommands[1] & SCROLL) // In this state we print a message
     {
-        uBit.display.clear();
+        uBit.display.clear(); // in case someone sent an empty message
         messageLength= (displayCommands[1] & 0x1F);// This gets us the length of the message to print
-
-        // flash the characters - necessary for now since scrolling is slower and messes with
-        // printing multiple messages. Could fix the timing in the apps later for V2
-        for(int i = 0; i < messageLength; i++)
+        if(commandLength >= (messageLength+2))
         {
-            messageFlash[i] = displayCommands[i+2];
-        }
-        // Launch an event only if we're not currently flashing a message
-        if(!flashOn && messageLength > 0) {
-            MicroBitEvent evt(BB_ID, FLASH_MSG_EVT); 
-        }
-        else {
-            newFlash = true; // Set this true if we're overwriting a currently flashing message
+            // flash the characters - necessary for now since scrolling is slower and messes with
+            // printing multiple messages. Could fix the timing in the apps later for V2
+            for(int i = 0; i < messageLength; i++)
+            {
+                messageFlash[i] = displayCommands[i+2];
+            }
+            // Launch an event only if we're not currently flashing a message
+            if(!flashOn && messageLength > 0) {
+                MicroBitEvent evt(BB_ID, FLASH_MSG_EVT); 
+            }
+            else {
+                newFlash = true; // Set this true if we're overwriting a currently flashing message
+            }
         }
     }
     else // if neither of these, clear the display
@@ -175,7 +180,6 @@ void decodeAndSetDisplay(uint8_t displayCommands[], uint8_t commandLength)
 }
 
 // This function sets the edge connector pins or internal buzzer
-// I still need to test that the edge connector pins are being set properly
 void decodeAndSetPins(uint8_t displayCommands[])
 {
     uint16_t pwmVal = 0; //variable to set the output pin to 

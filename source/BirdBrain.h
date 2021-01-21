@@ -40,7 +40,7 @@ extern uint16_t sleepCounter; // Used to check if we should turn off the Finch d
 
 // Time out for Finch to disconnect and turn off if it has not received a command. Currently set to 10 minutes
 #define FINCH_INACTIVITY_TIMEOUT                           10
-#define SLEEP_COUNTER_DISCONNECTION_THRESHOLD             (FINCH_INACTIVITY_TIMEOUT*600)
+
 
 // disabling the event service as we don't need it
 //#ifndef MICROBIT_BLE_EVENT_SERVICE

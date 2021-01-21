@@ -213,6 +213,13 @@ int MicroBitUARTService::getc(MicroBitSerialMode mode)
 
     rxBufferTail = (rxBufferTail + 1) % rxBufferSize;
 
+    // BIRDBRAIN Change - resetting ring buffer to avoid data overbound issues - this is probably not necessary
+    if(rxBufferTail == rxBufferHead)
+    {
+        rxBufferTail = 0;
+        rxBufferHead = 0;
+    }
+
     return c;
 }
 
