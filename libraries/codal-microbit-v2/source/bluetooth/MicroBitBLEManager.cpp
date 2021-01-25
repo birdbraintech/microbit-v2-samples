@@ -308,46 +308,26 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     MICROBIT_BLE_ECHK( nrf_sdh_enable_request());
     MICROBIT_BLE_ECHK( nrf_sdh_ble_default_cfg_set( microbit_ble_CONN_CFG_TAG, &ram_start));
     
-    // BIRDBRAIN CHANGE - trying to force the gapName to follow our format (device type (HB,MB,FN) followed by last five chars of Mac address)
-    // Most of the commented out code is an attempt to get the Mac address, but we switched to using the five fix chars of the micro:bit 
-    // serial number (in hex) instead.
-    ManagedString gapName;
-    // Getting the MAC address
- /*   fiber_sleep(1000); // wait a while for the BLE stack to load
-    ble_gap_addr_t mac;
-    MICROBIT_BLE_ECHK( sd_ble_gap_addr_get(&mac));
-*/
-    // Parsing the MAC address into a string
-
-  /*  ManagedString val1(convert_ascii(mac.addr[2]&0x0F));
-	uint8_t temp_input;
-	temp_input = (mac.addr[1]&0xF0);
-	ManagedString val2(convert_ascii(temp_input>>4));
-	//ManagedString val3(convert_ascii(mac.addr[1]&0x0F));
-    ManagedString val3(convert_ascii(0x0C));
-	temp_input = (mac.addr[0]& 0xF0);
-	//ManagedString val4(convert_ascii(temp_input>>4));
-    ManagedString val4("B");
-	ManagedString val5(convert_ascii(mac.addr[0]&0x0F));*/
 
 
+    /* BIRDBRAIN CHANGE - WE ARE NOT SETTING THE DEVICE NAME HERE AT ALL */
     // set fixed gap name - lancaster U code
-    gapName = deviceName;
+    //gapName = deviceName;
     //if ( enableBonding || !CONFIG_ENABLED(MICROBIT_BLE_WHITELIST))
     //{
         /*ManagedString namePrefix(" [");
         ManagedString namePostfix("]");
         gapName = gapName + namePrefix + deviceName + namePostfix;*/
     //}
-    ble_cfg_t ble_cfg;
+/*    ble_cfg_t ble_cfg;
     memset(&ble_cfg, 0, sizeof(ble_cfg));
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS( &ble_cfg.gap_cfg.device_name_cfg.write_perm);
     ble_cfg.gap_cfg.device_name_cfg.vloc        = BLE_GATTS_VLOC_USER;
-    ble_cfg.gap_cfg.device_name_cfg.p_value     = (uint8_t *)gapName.toCharArray();
-    ble_cfg.gap_cfg.device_name_cfg.current_len = gapName.length();
-    ble_cfg.gap_cfg.device_name_cfg.max_len     = gapName.length();
+    ble_cfg.gap_cfg.device_name_cfg.p_value     = (uint8_t *)deviceNameArray; //(uint8_t *)gapName.toCharArray();
+    ble_cfg.gap_cfg.device_name_cfg.current_len = sizeof(deviceNameArray);//gapName.length();
+    ble_cfg.gap_cfg.device_name_cfg.max_len     = sizeof(deviceNameArray);//gapName.length();
     MICROBIT_BLE_ECHK( sd_ble_cfg_set( BLE_GAP_CFG_DEVICE_NAME, &ble_cfg, ram_start));
-
+*/
     MICROBIT_BLE_ECHK( nrf_sdh_ble_enable(&ram_start));
     NRF_SDH_BLE_OBSERVER( microbit_ble_observer, microbit_ble_OBSERVER_PRIO, microbit_ble_evt_handler, NULL);
 
@@ -438,6 +418,38 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
 #error "Unknown MICROBIT_BLE_SECURITY_MODE"
 #endif
 
+
+    // BIRDBRAIN CHANGE - trying to force the gapName to follow our format (device type (HB,MB,FN) followed by last five chars of Mac address)
+    // we always start as a micro:bit, then change this when we configure advertising later
+    // this may not be needed
+    ble_gap_conn_sec_mode_t sec_mode;
+    BLE_GAP_CONN_SEC_MODE_SET_OPEN(&sec_mode);
+
+    char deviceNameArray[8];
+    deviceNameArray[0] = 'M';
+    deviceNameArray[1] = 'B';
+	ble_gap_addr_t 					mac;
+    sd_ble_gap_addr_get(&mac);
+
+	deviceNameArray[2] = convert_ascii((mac.addr[2]&0x0F));
+	
+	
+	deviceNameArray[3] = (mac.addr[1]&0xF0);
+	deviceNameArray[3] = convert_ascii(deviceNameArray[3]>>4);
+		
+	
+	deviceNameArray[4] = convert_ascii(mac.addr[1]&0x0F);
+	deviceNameArray[5] = (mac.addr[0]& 0xF0);
+	deviceNameArray[5] = convert_ascii(deviceNameArray[5]>>4);
+		
+	deviceNameArray[6] = convert_ascii(mac.addr[0]&0x0F);
+	deviceNameArray[7] = '\0';
+
+    sd_ble_gap_device_name_set(&sec_mode, (const uint8_t *)deviceNameArray, strlen(deviceNameArray));
+
+    /***************************/
+
+
     MICROBIT_BLE_ECHK( pm_init());
     MICROBIT_BLE_ECHK( pm_sec_params_set( &sec_param));
     MICROBIT_BLE_ECHK( pm_register( microbit_ble_pm_evt_handler));
@@ -447,8 +459,8 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     ble_gap_conn_params_t   gap_conn_params;
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
     // BIRDBRAIN CHANGE - setting to match V1 values
-    gap_conn_params.min_conn_interval = 6;      // 7.5 ms, this is the minimum// was 10 ms
-    gap_conn_params.max_conn_interval = 10; //16;     // 12.5 ms was 75 ms and before that 20 ms
+    gap_conn_params.min_conn_interval = 6; //6;      // 7.5 ms, this is the minimum// was 10 ms
+    gap_conn_params.max_conn_interval = 12; //10; //16;     // 12.5 ms was 75 ms and before that 20 ms
     gap_conn_params.slave_latency     = 0;
     gap_conn_params.conn_sup_timeout  = 400;    // 4s
     MICROBIT_BLE_ECHK( sd_ble_gap_ppcp_set( &gap_conn_params));

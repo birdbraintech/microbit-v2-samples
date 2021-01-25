@@ -94,10 +94,6 @@ void check_device_loop() {
             }
         }
         fiber_sleep(1000);
-        // hack to keep this pin low, it seems to decide not to be low after some time has passed, for mysterious reasons
-        if(whatAmI == A_FINCH) {
-            uBit.io.pin[RESET_PIN].setDigitalValue(0);
-        }
     }
 }
 
