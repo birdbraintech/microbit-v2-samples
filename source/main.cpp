@@ -17,7 +17,7 @@ void ble_mgmt_loop() {
     //uint8_t count = 0;
     while(1) { // loop for ever
         bleSerialCommand();   // reads the serial command and then executes on that command
-        //fiber_sleep(1);
+
         // send sensor data approx. every 30 ms
         /*if(count > 30) {
             assembleSensorData();

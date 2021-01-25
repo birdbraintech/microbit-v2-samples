@@ -21,6 +21,8 @@ uint16_t sleepCounter = 0;
 uint8_t bufferLength = 0;
 uint8_t bufferReport = 0;
 uint8_t bufferMem = 0;
+//MicroBitSerial serial(USBTX, USBRX); 
+bool serialDebug = false;
 
 // Convenience function to read the command packet, returns false if it timed out
 bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length);
@@ -173,6 +175,11 @@ void bleSerialCommand()
         }*/
         processCommand = true; // set a flag that tells the sensor packet function not to interrupt this
         ble_read_buff[0] = bleuart->getc(ASYNC); // reads immediately
+
+        if(serialDebug)
+        {
+            uBit.serial.sendChar(ble_read_buff[0], ASYNC); // for debugging only
+        }
         bytesUsed = 1; // we have now used at least one byte
         sleepCounter = 0; // reset the sleep counter since we have received a command
         // Switch on the first command byte
@@ -216,8 +223,7 @@ void bleSerialCommand()
                 break;                
             case NOTIFICATIONS:
                 if(readOneByte(ble_read_buff, 1)) {
-                    readOneByte(ble_read_buff, 2); // Reading an extra byte - hack to get BirdBlox notifications started
-                    if(ble_read_buff[1] == START_NOTIFY || ble_read_buff[2] == START_NOTIFY) {
+                    if(ble_read_buff[1] == START_NOTIFY) {
                         if(!notifyOn)
                         {
                             
@@ -225,7 +231,7 @@ void bleSerialCommand()
                             create_fiber(send_ble_data); // Sends sensor data every 30 ms
                         }
                     }
-                    else if(ble_read_buff[1] == STOP_NOTIFY || ble_read_buff[2] == STOP_NOTIFY) {
+                    else if(ble_read_buff[1] == STOP_NOTIFY) {
                         notifyOn = false;
                     }
                     bytesUsed = 2; // Uses two bytes
@@ -381,6 +387,10 @@ void bleSerialCommand()
                 break;
         }
         processCommand = false; // we are done processing commands, so now we should allow sensor packets to go out
+        if(serialDebug)
+        {
+            uBit.serial.sendChar(0xEE, ASYNC); // for debugging only
+        }
     }
     else {
         fiber_sleep(1);
@@ -502,6 +512,10 @@ bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length)
         // If there's a character, read it
         if(bleuart->isReadable()) {        
             commands[i] = bleuart->getc(ASYNC);
+            if(serialDebug)
+            {
+                uBit.serial.sendChar(commands[i], ASYNC); // for debugging only
+            }
         }
         // if there's no char, return failure
         else {
@@ -524,6 +538,10 @@ bool readOneByte(uint8_t commands[], int index)
     if(timeOut < 5) {*/        
     if(bleuart->isReadable()) {  
         commands[index] = bleuart->getc(ASYNC);
+        if(serialDebug)
+        {
+            uBit.serial.sendChar(commands[index], ASYNC); // for debugging only
+        }
         return true;
     }
     // if we couldn't read, return failure
