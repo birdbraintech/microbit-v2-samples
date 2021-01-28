@@ -122,6 +122,11 @@ class MicroBitUARTService : public MicroBitBLEService
       */
     int getc(MicroBitSerialMode mode = SYNC_SLEEP);
 
+    // BIRDBRAIN CHANGE - this resets the buffer pointers to 0
+    // seems to help prevent buffer packet errors when many packets come within a very short span of one another    
+    void resetBuffer();
+
+
     /**
       * Places a single character into our transmission buffer,
       *

@@ -10,6 +10,7 @@
 bool bleConnected = false; // Holds if connected over BLE
 bool notifyOn = false; // Holds if notifications are being sent
 bool calibrationSuccess = false;
+bool calibrationAttempt = false; // Holds if we've made a calibration attempt yet
 MicroBitUARTService *bleuart;
 bool processCommand = false; // Flag to hold off sending sensor data until we have first processed an inbound command
 
@@ -21,8 +22,7 @@ uint16_t sleepCounter = 0;
 uint8_t bufferLength = 0;
 uint8_t bufferReport = 0;
 uint8_t bufferMem = 0;
-//MicroBitSerial serial(USBTX, USBRX); 
-bool serialDebug = false;
+bool serialDebug = false; // switch to start pumping packets over serial to see what the device receives over BLE
 
 // Convenience function to read the command packet, returns false if it timed out
 bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length);
@@ -163,7 +163,10 @@ void bleSerialCommand()
     // This allows multiple commands to execute sequentially since it just gets called over and over in the main while loop
     if(bleConnected && (bleuart->rxBufferedSize() > 0) && (processCommand == false))
     {
+        //bufferLength = bleuart->getc(ASYNC); //bleuart->rxBufferedSize(); // for debugging only
+        //uBit.serial.sendChar(bufferLength, ASYNC); // for debugging only
         //bufferLength = bleuart->rxBufferedSize(); // for debugging only
+        //uBit.serial.sendChar(bufferLength, ASYNC); // for debugging only
         //memset(ble_read_buff, 0, 20); // resetting the packet
         // Check that the sensor packet isn't currently in the process of being set/sent
         /*uint8_t timeOut = 0;
@@ -176,10 +179,10 @@ void bleSerialCommand()
         processCommand = true; // set a flag that tells the sensor packet function not to interrupt this
         ble_read_buff[0] = bleuart->getc(ASYNC); // reads immediately
 
-        if(serialDebug)
-        {
+        //if(serialDebug)
+        //{
             uBit.serial.sendChar(ble_read_buff[0], ASYNC); // for debugging only
-        }
+        //}
         bytesUsed = 1; // we have now used at least one byte
         sleepCounter = 0; // reset the sleep counter since we have received a command
         // Switch on the first command byte
@@ -288,7 +291,8 @@ void bleSerialCommand()
                 }*/
                 //sensorPacketCount = 0;
                 uBit.compass.calibrate();
-                calibrationSuccess = true; // = uBit.compass.isCalibrated(); // probably not necessary
+                calibrationAttempt = true;
+                calibrationSuccess = uBit.compass.isCalibrated(); // probably not necessary
                 notifyOn = true; // restart notifications
                 create_fiber(send_ble_data);
                 bytesUsed = 4; // This command sends 0xCE followed by 0xFF three times
@@ -384,13 +388,16 @@ void bleSerialCommand()
                 bytesUsed = 1; // 0xD5
                 break;
             default:
+                // Improper command, flush the buffer by the length of the packet
+                //getCommands(ble_read_buff, 1, bufferLength);
                 break;
         }
         processCommand = false; // we are done processing commands, so now we should allow sensor packets to go out
-        if(serialDebug)
-        {
+        bleuart->resetBuffer(); // resets the buffer if we have read everything
+        //if(serialDebug)
+        //{
             uBit.serial.sendChar(0xEE, ASYNC); // for debugging only
-        }
+        //}
     }
     else {
         fiber_sleep(1);
@@ -427,34 +434,18 @@ void assembleSensorData()
             getAccelerometerValsFinch(sensor_vals);
             getMagnetometerValsFinch(sensor_vals);
             getButtonValsFinch(sensor_vals);
-            
-            // Overwriting right encoder for debugging purposes
-            /*
-            if(bufferLength > 0)
-            {
-                bufferReport = 0;
-                bufferMem = bufferLength;
-            }*/
-            // Make sure we give it at least ten cycles of reporting our non zero buffer length
-            /*if(bufferReport < 10) {
-                int32_t temp = bufferMem*792;
-                    //Right Encoders
-                sensor_vals[10] = (temp & 0xFF0000) >>16;
-                sensor_vals[11] = (temp & 0x00FF00) >>8;
-                sensor_vals[12] = temp & 0x0000FF;
-                bufferReport++;
-            }
-            else {
-                sensor_vals[10] = 0;
-                sensor_vals[11] = 0;
-                sensor_vals[12] = 0;              
-            }*/
-
 
             // Probably not necessary as we get feedback from the LED screen            
-            if(calibrationSuccess)
+            if(calibrationAttempt)
             {
-                sensor_vals[16] = sensor_vals[16] | 0x04;
+                if(calibrationSuccess)
+                {
+                    sensor_vals[16] = sensor_vals[16] | 0x04;
+                }
+                else
+                {
+                    sensor_vals[16] = sensor_vals[16] | 0x08;
+                }
             }
 
             bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC);
@@ -496,31 +487,35 @@ void assembleSensorData()
 // length is the end index - so we are going to read length-startIndex bytes
 bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length)
 {
-    //uint8_t timeOut = 0;
+    uint8_t timeOut = 0;
     for(int i = startIndex; i < length; i++)
     {
-        //timeOut=0;
+        timeOut=0;
         // try to read each character
-        /*while(!bleuart->isReadable() && timeOut < 5)
+        while(!bleuart->isReadable() && timeOut < 5)
         {
             fiber_sleep(1);
             timeOut++;     
+            uBit.serial.sendChar(timeOut, ASYNC);
         }
         if(timeOut < 5) {        
             commands[i] = bleuart->getc(ASYNC);
-        }*/
-        // If there's a character, read it
-        if(bleuart->isReadable()) {        
-            commands[i] = bleuart->getc(ASYNC);
-            if(serialDebug)
-            {
+            //if(serialDebug)
+            //{
                 uBit.serial.sendChar(commands[i], ASYNC); // for debugging only
-            }
+            //}
         }
-        // if there's no char, return failure
         else {
+            uBit.serial.sendChar(0xFE, ASYNC);
             return false;
-        }
+        }        
+        // If there's a character, read it
+        /*if(bleuart->isReadable()) {        
+            commands[i] = bleuart->getc(ASYNC);
+
+        }*/
+        // if there's no char, return failure
+
     }
     return true;
 }
@@ -528,24 +523,26 @@ bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length)
 // Convenience function to read a single byte, index is the position in the array where we want to put the byte
 bool readOneByte(uint8_t commands[], int index)
 {
-    //uint8_t timeOut=0;
+    uint8_t timeOut=0;
         // try to read each character
-    /*while(!bleuart->isReadable() && timeOut < 5)
+    while(!bleuart->isReadable() && timeOut < 5)
     {
         fiber_sleep(1);
         timeOut++;     
+        uBit.serial.sendChar(timeOut, ASYNC);
     }
-    if(timeOut < 5) {*/        
-    if(bleuart->isReadable()) {  
+    if(timeOut < 5) {        
+    //if(bleuart->isReadable()) {  
         commands[index] = bleuart->getc(ASYNC);
-        if(serialDebug)
-        {
+        //if(serialDebug)
+        //{
             uBit.serial.sendChar(commands[index], ASYNC); // for debugging only
-        }
+        //}
         return true;
     }
     // if we couldn't read, return failure
     else {
+        uBit.serial.sendChar(0xFD, ASYNC);
         return false;
     }    
 }

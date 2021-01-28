@@ -14,6 +14,7 @@ bool leftMotorForwardDirection = false ;
 bool rightMotorMove     = false ;
 bool rightMotorForwardDirection = false ;
 
+uint8_t prevFinchSetAllLEDs[FINCH_SETALL_LENGTH];
 
 // Helper function to record how we're setting the motors
 void moveMotor(uint8_t* currentCommand);
@@ -23,6 +24,8 @@ void initFinch()
 {
     stopFinch();
     resetEncoders();
+    // Init the previous Finch LED command array
+    memset(prevFinchSetAllLEDs, 0, FINCH_SETALL_LENGTH);
 }
 
 // Sends the stop command to the Finch
@@ -38,8 +41,28 @@ void stopFinch()
 // Sets all Finch LEDs + buzzer in one go
 void setAllFinchLEDs(uint8_t commands[], uint8_t length)
 {
-    // Double check that the command contains enough data for us to proceed
-    if(length >= FINCH_SETALL_LENGTH)
+    bool updateCommand = false;
+
+    for(int i = 0; i < FINCH_SETALL_LENGTH; i++)
+    {
+        if(commands[i] != prevFinchSetAllLEDs[i])
+        {
+            updateCommand = true;
+        }
+        prevFinchSetAllLEDs[i] = commands[i];
+    }
+
+    if(updateCommand)
+    {
+        for(int i = 0; i < FINCH_SETALL_LENGTH; i++)
+        {
+            uBit.serial.sendChar(commands[i], ASYNC); 
+        }
+    }
+
+    // Double check that the command contains enough data for us to proceed and that it isn't
+    // an identical command from one sent previously
+    if(length >= FINCH_SETALL_LENGTH && updateCommand)
     {    
         // setting the buzzer
         uint16_t buzzPeriod = (commands[16]<<8) + commands[17];

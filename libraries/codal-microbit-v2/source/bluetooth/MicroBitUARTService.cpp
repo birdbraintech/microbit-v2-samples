@@ -57,6 +57,7 @@ const uint16_t MicroBitUARTService::charUUID[ mbbs_cIdxCOUNT] = { 0x0003, 0x0002
  */
 MicroBitUARTService::MicroBitUARTService(BLEDevice &_ble, uint8_t rxBufferSize, uint8_t txBufferSize)
 {
+
     // Initialise our characteristic values.
     txBufferHead = 0;
     txBufferTail = 0;
@@ -123,7 +124,8 @@ void MicroBitUARTService::onDataWritten(const microbit_ble_evt_write_t *params)
             if(newHead != rxBufferTail)
             {
                 char c = params->data[byteIterator];
-
+                // BirdBrain Change - we don't use delimeters
+                /*
                 int delimeterOffset = 0;
                 int delimLength = this->delimeters.length();
 
@@ -135,8 +137,21 @@ void MicroBitUARTService::onDataWritten(const microbit_ble_evt_write_t *params)
                         MicroBitEvent(MICROBIT_ID_BLE_UART, MICROBIT_UART_S_EVT_DELIM_MATCH);
 
                     delimeterOffset++;
-                }
+                }*/
+                // BIRDBRAIN CHANGE - Put each packet's length into the array
+                /*if(byteIterator == 0)
+                {
+                    rxBuffer[rxBufferHead] = bytesWritten;
+                    rxBufferHead = newHead;
 
+                    if(rxBufferHead == rxBuffHeadMatch)
+                    {
+                        rxBuffHeadMatch = -1;
+                        MicroBitEvent(MICROBIT_ID_BLE_UART, MICROBIT_UART_S_EVT_HEAD_MATCH);
+                    }
+                    newHead = (rxBufferHead + 1) % rxBufferSize; // increment the buffer head
+
+                }*/
                 rxBuffer[rxBufferHead] = c;
 
                 rxBufferHead = newHead;
@@ -213,14 +228,18 @@ int MicroBitUARTService::getc(MicroBitSerialMode mode)
 
     rxBufferTail = (rxBufferTail + 1) % rxBufferSize;
 
-    // BIRDBRAIN Change - resetting ring buffer to avoid data overbound issues - this is probably not necessary
-    /*if(rxBufferTail == rxBufferHead)
-    {
-        rxBufferTail = 0;
-        rxBufferHead = 0;
-    }*/
-
     return c;
+}
+
+// BIRDBRAIN CHANGE - this resets the buffer pointers to 1
+// seems to help prevent buffer packet errors when many packets come within a very short span of one another    
+void MicroBitUARTService::resetBuffer()
+{
+    if(rxBufferHead == rxBufferTail)
+    {
+        rxBufferHead = 1;
+        rxBufferTail = 1;
+    }
 }
 
 /**

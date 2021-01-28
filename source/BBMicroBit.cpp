@@ -187,16 +187,22 @@ void decodeAndSetPins(uint8_t displayCommands[])
     // Buzzer mode
     if((displayCommands[4] & 0x30) == 0x20)
     {
-        //pinsInputs[0] = false; // Don't need this since the speaker does not overlap pin 0 on V2
-        buzzPeriod = (displayCommands[1]<<8) + displayCommands[2];
-        buzzDuration = (displayCommands[3]<<8) + displayCommands[5];
-        if(buzzDuration > 0) {
+        // Don't need this since the speaker does not overlap pin 0 on V2
+        uint16_t period = (displayCommands[1]<<8) + displayCommands[2];
+        uint16_t duration = (displayCommands[3]<<8) + displayCommands[5];
+        // only activate the buzzer if the command is valid
+        if(period > 0 && duration > 10)
+        {
+            // updating the global variables
+            buzzPeriod = period;
+            buzzDuration = duration;
             newBuzz = true; //Turning this on to update the loop in case the event is already active
+            
+            if(!buzzerRunning) {
+                // Launching the event if it's not already running
+                MicroBitEvent evt(BB_ID, MB_BUZZ_EVT);
+            } 
         }
-        if(!buzzerRunning) {
-            // Launching the event if it's not already running
-            MicroBitEvent evt(BB_ID, MB_BUZZ_EVT);
-        } 
     }
     // input mode
     else if((displayCommands[4] & 0x30) == 0x10)
@@ -248,6 +254,9 @@ void decodeAndSetPins(uint8_t displayCommands[])
 // Function used for setting the buzzer for Hummingbird and Finch
 void setBuzzer(uint16_t period, uint16_t duration)
 {
+    // only activate the buzzer if the command is valid
+    if(period > 0 && duration > 10)
+    {
         buzzPeriod = period;
         buzzDuration = duration;
         if(buzzDuration > 0) {
@@ -257,6 +266,7 @@ void setBuzzer(uint16_t period, uint16_t duration)
             // Launching the event if it's not already running
             MicroBitEvent evt(BB_ID, MB_BUZZ_EVT);
         } 
+    }
 }
 
 void getEdgeConnectorVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
@@ -433,7 +443,15 @@ uint16_t convertMagVal(int magValue)
 void stopMB()
 {
     buzzerRunning = false; // Stop the buzzer
-    uBit.io.speaker.setAnalogValue(0); 
+    buzzPeriod = 0;
+    buzzDuration = 0;
+    if(whatAmI == A_MB)
+    {
+        uBit.io.speaker.setAnalogValue(0); 
+    }
+    else {
+        uBit.io.P0.setAnalogValue(0);
+    }
     flashOn = false; // Turn off any messages that are flashing
     uBit.display.clear(); // Clear the display
     if(whatAmI == A_MB) {

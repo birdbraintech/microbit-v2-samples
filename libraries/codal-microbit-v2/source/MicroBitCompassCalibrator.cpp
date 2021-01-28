@@ -333,6 +333,8 @@ void MicroBitCompassCalibrator::calibrateUX(MicroBitEvent)
     while(samples < PERIMETER_POINTS)
     {
         // Scroll a message the first time we enter this loop and every REDISPLAY_MSG_TIMEOUT_MS
+        // BIRDBRAIN CHANGE - Eliminating the message
+        /*
         if (remaining_scroll_time == MSG_TIME || remaining_scroll_time <= -REDISPLAY_MSG_TIMEOUT_MS)        {
                 display.clear();
                 display.scrollAsync("TILT TO FILL SCREEN "); // Takes about 14s
@@ -345,7 +347,7 @@ void MicroBitCompassCalibrator::calibrateUX(MicroBitEvent)
                 // This stops the scrolling at the end of the message.
                 // ...and it is the source of the ((MSG_TIME % TIME_STEP) == 0) requirement
                 display.stopAnimation();
-        }
+        }*/
 
         // update our model of the flash status of the user controlled pixel.
         cursor_on = (cursor_on + 40) % 200;
@@ -354,7 +356,7 @@ void MicroBitCompassCalibrator::calibrateUX(MicroBitEvent)
         int x = accelerometer.getX();
         int y = accelerometer.getY();
 
-        // Deterine the position of the user controlled pixel on the screen.
+        // Determine the position of the user controlled pixel on the screen.
         if (x < -PIXEL2_THRESHOLD)
             cursor.x = 0;
         else if (x < -PIXEL1_THRESHOLD)
@@ -388,8 +390,9 @@ void MicroBitCompassCalibrator::calibrateUX(MicroBitEvent)
         img.setPixelValue(cursor.x, cursor.y, cursor_on);
 
         // Update the buffer to the screen ONLY if we've finished scrolling the message
-        if (remaining_scroll_time < 0 || samples_this_period > SAMPLES_END_MSG_COUNT)
-            display.image.paste(img,0,0,0);
+        // BIRDBRAIN CHANGE - we eliminated the message
+        //if (remaining_scroll_time < 0 || samples_this_period > SAMPLES_END_MSG_COUNT)
+        display.image.paste(img,0,0,0);
 
         // test if we need to update the state at the users position.
         for (int i=0; i<PERIMETER_POINTS; i++)
