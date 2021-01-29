@@ -46,6 +46,8 @@ const uint8_t  MicroBitUARTService::base_uuid[ 16] =
 const uint16_t MicroBitUARTService::serviceUUID               = 0x0001;
 const uint16_t MicroBitUARTService::charUUID[ mbbs_cIdxCOUNT] = { 0x0003, 0x0002 }; // BIRDBRAIN CHANGE, Tx and Rx are reversed from default
 
+// BIRDBRAIN CHANGE - block getc when being written to
+bool writingToBuffer;
 
 /**
  * Constructor for the UARTService.
@@ -75,6 +77,8 @@ MicroBitUARTService::MicroBitUARTService(BLEDevice &_ble, uint8_t rxBufferSize, 
     txBufferHead = 0;
     txBufferTail = 0;
     this->txBufferSize = txBufferSize;
+
+    writingToBuffer = false;
 
     // Register the base UUID and create the service.
     RegisterBaseUUID( base_uuid);
@@ -116,7 +120,9 @@ void MicroBitUARTService::onDataWritten(const microbit_ble_evt_write_t *params)
     if (params->handle == valueHandle( mbbs_cIdxRX))
     {
         uint16_t bytesWritten = params->len;
-
+        // BIRDBRAIN CHANGE
+        //while(writingToBuffer);
+        writingToBuffer = true; // BirdBrain Change
         for(int byteIterator = 0; byteIterator <  bytesWritten; byteIterator++)
         {
             int newHead = (rxBufferHead + 1) % rxBufferSize;
@@ -165,6 +171,7 @@ void MicroBitUARTService::onDataWritten(const microbit_ble_evt_write_t *params)
             else
                 MicroBitEvent(MICROBIT_ID_BLE_UART, MICROBIT_UART_S_EVT_RX_FULL);
         }
+        writingToBuffer = false; // BirdBrain change
     }
 }
 
@@ -223,22 +230,26 @@ int MicroBitUARTService::getc(MicroBitSerialMode mode)
         if(!isReadable())
             eventAfter(1, mode);
     }
-
+    // BirdBrain change - block writing while we read
+    while(writingToBuffer);
+    //writingToBuffer = true;
     char c = rxBuffer[rxBufferTail];
 
     rxBufferTail = (rxBufferTail + 1) % rxBufferSize;
+    //writingToBuffer = false; // BirdBrain change
 
     return c;
 }
 
-// BIRDBRAIN CHANGE - this resets the buffer pointers to 1
+// BIRDBRAIN CHANGE - this resets the buffer pointers to 0
 // seems to help prevent buffer packet errors when many packets come within a very short span of one another    
 void MicroBitUARTService::resetBuffer()
 {
     if(rxBufferHead == rxBufferTail)
     {
-        rxBufferHead = 1;
-        rxBufferTail = 1;
+        rxBufferHead = 0;
+        rxBufferTail = 0;
+        memset(rxBuffer, 0, rxBufferSize); // may not be necessary
     }
 }
 
@@ -392,6 +403,10 @@ int MicroBitUARTService::read(uint8_t *buf, int len, MicroBitSerialMode mode)
 
     int i = 0;
 
+    // BIRDBRAIN CHANGE
+    while(writingToBuffer);
+    //writingToBuffer = true;
+
     if(mode == ASYNC)
     {
         int c;
@@ -414,6 +429,8 @@ int MicroBitUARTService::read(uint8_t *buf, int len, MicroBitSerialMode mode)
             i++;
         }
     }
+    // BIRDBRAIN CHANGE
+    //writingToBuffer = false;
 
     return i;
 }
@@ -592,7 +609,7 @@ int MicroBitUARTService::eventAfter(int len, MicroBitSerialMode mode)
   * @return 1 if we have space, 0 if we do not.
   *
   * @note the reason we do not wrap the super's readable() method is so that we
-  *       don't interfere with communities that use manual calls to uBit.serial.readable()
+  *       don't interfere with communities that use manual calls to //uBit.serial.readable()
   */
 int MicroBitUARTService::isReadable()
 {

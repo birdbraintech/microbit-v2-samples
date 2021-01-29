@@ -15,6 +15,7 @@ bool rightMotorMove     = false ;
 bool rightMotorForwardDirection = false ;
 
 uint8_t prevFinchSetAllLEDs[FINCH_SETALL_LENGTH];
+uint8_t prevFinchSetMotorsScreen[FINCH_SETALL_LENGTH];
 
 // Helper function to record how we're setting the motors
 void moveMotor(uint8_t* currentCommand);
@@ -26,6 +27,7 @@ void initFinch()
     resetEncoders();
     // Init the previous Finch LED command array
     memset(prevFinchSetAllLEDs, 0, FINCH_SETALL_LENGTH);
+    memset(prevFinchSetMotorsScreen, 0, FINCH_SETALL_LENGTH);
 }
 
 // Sends the stop command to the Finch
@@ -52,13 +54,13 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
         prevFinchSetAllLEDs[i] = commands[i];
     }
 
-    if(updateCommand)
+    /*if(updateCommand)
     {
         for(int i = 0; i < FINCH_SETALL_LENGTH; i++)
         {
-            uBit.serial.sendChar(commands[i], ASYNC); 
+            //uBit.serial.sendChar(commands[i], ASYNC); 
         }
-    }
+    }*/
 
     // Double check that the command contains enough data for us to proceed and that it isn't
     // an identical command from one sent previously
@@ -80,8 +82,43 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
     uint8_t mode;
     uint8_t bytesUsed = 2; // we have always used at least two bytes
     uint8_t print_length = 0; // Length of the message to print
-    // Making sure we have enough data
-    if(length >= 2)
+
+    bool updateCommand = false;
+    bool updateMotorCommand = false;
+
+    if(length <= 10)
+    {
+        for(int i = 0; i < length; i++)
+        {
+            if(commands[i] != prevFinchSetMotorsScreen[i])
+            {
+                updateCommand = true;
+            }
+            prevFinchSetMotorsScreen[i] = commands[i];
+        }
+    }
+    else
+    {
+        for(int i = 0; i < 10; i++)
+        {
+            if(commands[i] != prevFinchSetMotorsScreen[i])
+            {
+                updateMotorCommand = true;
+            }
+            prevFinchSetMotorsScreen[i] = commands[i];
+        }
+        for(int i = 10; i < length; i++)
+        {
+            if(commands[i] != prevFinchSetMotorsScreen[i])
+            {
+                updateCommand = true;
+            }
+            prevFinchSetMotorsScreen[i] = commands[i];
+        }        
+    }
+
+    // Making sure we have enough data and that the data is fresh
+    if(length >= 2 && (updateCommand||updateMotorCommand))
     {
         // Use only the top 3 bits to determine mode
         mode = (commands[1]>>5) & LED_MOTOR_MODE_MASK;
@@ -123,9 +160,10 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                     {
                         symbolCommands[i+2] = commands[i+10];
                     }
-                    decodeAndSetDisplay(symbolCommands, 6);
-                    
-                    moveMotor(commands); // safe to send the symbol commands too, they get overwritten with zeros
+                    if(updateCommand)
+                        decodeAndSetDisplay(symbolCommands, 6);
+                    if(updateMotorCommand)
+                        moveMotor(commands); // safe to send the symbol commands too, they get overwritten with zeros
                     bytesUsed = 14;
                 }
                 break;
@@ -144,9 +182,9 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                     {
                         printCommands[i+2] = commands[i+10];
                     }
-                    decodeAndSetDisplay(printCommands, print_length+2);
-                    
+                    decodeAndSetDisplay(printCommands, print_length+2);                 
                     moveMotor(commands); // safe to send the print commands too, they get overwritten with zeros
+
                 }
                 break;
         }

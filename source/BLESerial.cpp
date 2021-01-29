@@ -150,10 +150,10 @@ void bleSerialCommand()
 {
     //uint8_t buff_length = bleuart->rxBufferedSize(); // checking how many bytes we have in the buffer
 
-    uint8_t ble_read_buff[20]; // local buffer to hold our command packet
+    //uint8_t ble_read_buff[20]; // local buffer to hold our command packet
     uint8_t bytesUsed = 0;
 
-    memset(ble_read_buff, 0, 20); // resetting the packet
+    //memset(ble_read_buff, 0, 20); // resetting the packet
 
 
     
@@ -161,12 +161,17 @@ void bleSerialCommand()
 
     // Run this loop if there is data in the buffer 
     // This allows multiple commands to execute sequentially since it just gets called over and over in the main while loop
-    if(bleConnected && (bleuart->rxBufferedSize() > 0) && (processCommand == false))
+    if(bleConnected && bleuart->isReadable() && (processCommand == false))
     {
-        //bufferLength = bleuart->getc(ASYNC); //bleuart->rxBufferedSize(); // for debugging only
-        //uBit.serial.sendChar(bufferLength, ASYNC); // for debugging only
+        processCommand = true; // set a flag that tells the sensor packet function not to interrupt this
+        bufferLength = bleuart->rxBufferedSize(); //bleuart->getc(ASYNC); 
+        //uBit.serial.sendChar(bufferLength, SYNC_SPINWAIT); // for debugging only
+        uint8_t ble_read_buff[bufferLength]; // local buffer to hold our command packet
+        memset(ble_read_buff, 0, bufferLength); // resetting the packet
+        //bufferMem = bleuart->rxBufferedSize();
+        //uBit.serial.sendChar(bufferMem, SYNC_SPINWAIT); // for debugging only
         //bufferLength = bleuart->rxBufferedSize(); // for debugging only
-        //uBit.serial.sendChar(bufferLength, ASYNC); // for debugging only
+        ////uBit.serial.sendChar(bufferLength, ASYNC); // for debugging only
         //memset(ble_read_buff, 0, 20); // resetting the packet
         // Check that the sensor packet isn't currently in the process of being set/sent
         /*uint8_t timeOut = 0;
@@ -176,228 +181,255 @@ void bleSerialCommand()
            fiber_sleep(1);
            timeOut++;     
         }*/
-        processCommand = true; // set a flag that tells the sensor packet function not to interrupt this
-        ble_read_buff[0] = bleuart->getc(ASYNC); // reads immediately
-
-        //if(serialDebug)
-        //{
-            uBit.serial.sendChar(ble_read_buff[0], ASYNC); // for debugging only
-        //}
-        bytesUsed = 1; // we have now used at least one byte
-        sleepCounter = 0; // reset the sleep counter since we have received a command
-        // Switch on the first command byte
-        switch(ble_read_buff[0])
+        //ble_read_buff[0] = bleuart->getc(ASYNC); // reads immediately
+        //if(getCommands(ble_read_buff, 0, bufferLength))
+        bleuart->read(ble_read_buff, bufferLength, ASYNC); // read the entire buffer
+        bleuart->resetBuffer(); // resets the buffer if we have read everything
+        uint8_t commandCount = 0;
+/*
+        for(int i = 0; i < bufferLength; i++)
         {
-            case SET_LEDARRAY:
-                if(whatAmI == A_MB || whatAmI == A_HB) {
-                    // try to read the second byte, give it five tries before giving up
-                    if(readOneByte(ble_read_buff, 1))
+            uBit.serial.sendChar(ble_read_buff[i], SYNC_SPINWAIT); // for debugging only
+        }
+        uBit.serial.sendChar(0xFE, SYNC_SPINWAIT);
+        uBit.serial.sendChar(0xAF, SYNC_SPINWAIT);
+*/
+        while(commandCount < bufferLength)
+        {
+            //uBit.serial.sendChar(ble_read_buff[commandCount], SYNC_SPINWAIT); // for debugging only
+        
+            //bytesUsed = 1; // we have now used at least one byte
+            sleepCounter = 0; // reset the sleep counter since we have received a command
+            // Switch on the first command byte
+            switch(ble_read_buff[commandCount])
+            {
+                case SET_LEDARRAY:
+                    if(whatAmI == A_MB || whatAmI == A_HB) {
+                        // try to read the second byte, give it five tries before giving up
+                        //if(readOneByte(ble_read_buff, 1))
+                        //{
+                            // If our command is to print a symbol, then we're using 6 bytes
+                            if(ble_read_buff[1] == SYMBOL)
+                            {
+                                bytesUsed = 6;  // 2 bytes for commands, 4 for the symbol
+                            }
+                            else if(ble_read_buff[1] & SCROLL)
+                            {
+                                bytesUsed =  (ble_read_buff[1] & 0x1F) + 2; // We use 2 bytes + the length of the message
+                            }
+                            else {
+                                bytesUsed = 2; // If this happens, it is a clear screen command
+                            }
+                            // get the rest of the command packet, only do something with it if you have enough data
+                           // if(getCommands(ble_read_buff, 2, bytesUsed)) {
+                            uint8_t packetCommands[bytesUsed];
+                            if(bufferLength >= commandCount+bytesUsed)
+                            {
+                                for(int i = 0; i < bytesUsed; i++)
+                                {
+                                    packetCommands[i] = ble_read_buff[i+commandCount];
+                                }   
+                                decodeAndSetDisplay(packetCommands, bytesUsed);
+                                commandCount += bytesUsed;
+                            }                            
+                            else {
+                                commandCount++;
+                            }
+
+                           // }
+                        //}
+                    }
+                    else {
+                        commandCount++;
+                    }
+                    break;
+                case SET_FIRMWARE: 
+                case FINCH_SET_FIRMWARE:      
+                    returnFirmwareData();
+                    commandCount++;
+                    break;                
+                case NOTIFICATIONS:
+                   // if(readOneByte(ble_read_buff, 1)) {
+                    commandCount++;
+                    if(bufferLength > commandCount)
                     {
-                        // If our command is to print a symbol, then we're using 6 bytes
-                        if(ble_read_buff[1] == SYMBOL)
-                        {
-                            bytesUsed = 6;  // 2 bytes for commands, 4 for the symbol
+                        if(ble_read_buff[commandCount] == START_NOTIFY) {
+                            if(!notifyOn)
+                            {
+                                notifyOn = true;
+                                create_fiber(send_ble_data); // Sends sensor data every 30 ms
+                            }
+                            commandCount++;
                         }
-                        else if(ble_read_buff[1] & SCROLL)
-                        {
-                            bytesUsed =  (ble_read_buff[1] & 0x1F) + 2; // We use 2 bytes + the length of the message
+                        else if(ble_read_buff[commandCount] == STOP_NOTIFY) {
+                            notifyOn = false;                            
+                            commandCount++;
                         }
+                        bytesUsed = 2; // Uses two bytes
+                    }
+                    break;
+                case MICRO_IO:
+                    if(whatAmI == A_MB) {
+                        bytesUsed = 8; // This command always uses 8 bytes
+                        uint8_t packetCommands[bytesUsed];
+                        if(bufferLength >= commandCount+bytesUsed)
+                        {
+                            for(int i = 0; i < bytesUsed; i++)
+                            {
+                                packetCommands[i] = ble_read_buff[i+commandCount];
+                            }   
+                            decodeAndSetPins(packetCommands);
+                            commandCount += bytesUsed;
+                        }                        
                         else {
-                            bytesUsed = 2; // If this happens, it is a clear screen command
-                        }
-                        // get the rest of the command packet, only do something with it if you have enough data
-                        if(getCommands(ble_read_buff, 2, bytesUsed)) {
-                            decodeAndSetDisplay(ble_read_buff, bytesUsed);
+                            commandCount++;
                         }
                     }
-                }
-                break;
-            case SET_FIRMWARE: 
-            case FINCH_SET_FIRMWARE:     
-                // read three more bytes to flush the 0xFFs out of the buffer - decided not to do this since sometimes only 1 byte is sent
-                /*for(int i = 0; i < 3; i++)
-                {
-                    if(bleuart->isReadable())
+                    else {
+                        commandCount++;
+                    }
+                    break;
+                case STOP_ALL:
+                    stopMB(); // Stops the LED screen and buzzer, and if a MB sets edge connector pins to inputs
+                    if(whatAmI == A_HB)
                     {
-                        ble_read_buff[i+1] = bleuart->getc(ASYNC);
+                        stopHB(); // stops servos and LEDs on the HB
                     }
-                } */  
-                returnFirmwareData();
-                break;                
-            case NOTIFICATIONS:
-                if(readOneByte(ble_read_buff, 1)) {
-                    if(ble_read_buff[1] == START_NOTIFY) {
-                        if(!notifyOn)
+                    commandCount++; // incrementing by 1 because sometimes only one byte is sent
+                    bytesUsed = 4; // This command sends 0xCB followed by 0xFF three times
+
+                    break;
+                case SET_CALIBRATE:
+                    notifyOn = false;
+                    uBit.compass.calibrate();
+                    calibrationAttempt = true;
+                    calibrationSuccess = uBit.compass.isCalibrated(); // probably not necessary
+                    notifyOn = true; // restart notifications
+                    create_fiber(send_ble_data);
+                    commandCount++;
+                    bytesUsed = 4; // This command sends 0xCE followed by 0xFF three times
+                    break;
+                // Sets the Hummingbird outputs and, in some cases, the micro:bit's buzzer
+                case SETALL_SPI:
+                    if(bufferLength >= commandCount + HB_SETALL_LENGTH)
+                    {
+                        if(whatAmI == A_HB)
                         {
-                            
-                            notifyOn = true;
-                            create_fiber(send_ble_data); // Sends sensor data every 30 ms
+                            bytesUsed = HB_SETALL_LENGTH; // 19 bytes right now
+                            uint8_t packetCommands[bytesUsed];
+                            for(int i = 0; i < bytesUsed; i++)
+                            {
+                                packetCommands[i] = ble_read_buff[i+commandCount];
+                            } 
+                            setAllHB(packetCommands, bytesUsed);
+                            commandCount += bytesUsed;
+                        }
+                        else if(whatAmI == A_MB)
+                        {  
+                            bytesUsed = HB_SETALL_LENGTH; // 19 bytes right now   
+                            // setting the buzzer
+                            uint16_t buzzPeriod = (ble_read_buff[commandCount+15]<<8) + ble_read_buff[commandCount+16];
+                            uint16_t buzzDuration = (ble_read_buff[commandCount+17]<<8) + ble_read_buff[commandCount+18];
+                            setBuzzer(buzzPeriod, buzzDuration);                  
+                            commandCount += bytesUsed;
+                        }                        
+                        else {
+                            commandCount++;
                         }
                     }
-                    else if(ble_read_buff[1] == STOP_NOTIFY) {
-                        notifyOn = false;
+                    else {
+                        commandCount++;
                     }
-                    bytesUsed = 2; // Uses two bytes
-                }
-                break;
-            case MICRO_IO:
-                if(whatAmI == A_MB) {
-                    if(getCommands(ble_read_buff, 1, 8))
+                    break;
+                // Sets the Finch LEDs + buzzer
+                case FINCH_SETALL_LED:
+                    if(whatAmI == A_FINCH && (bufferLength >= commandCount + FINCH_SETALL_LENGTH))
                     {
-                            decodeAndSetPins(ble_read_buff);
-                            bytesUsed = 8; // This command always uses 8 bytes
-                    }
-                }
-                break;
-            case STOP_ALL:
-                // If you receive three more bytes
-                // read three more bytes to flush the 0xFFs out of the buffer
-                /*for(int i = 0; i < 3; i++)
-                {
-                    if(bleuart->isReadable())
-                    {
-                        ble_read_buff[i+1] = bleuart->getc(ASYNC);
-                    }
-                }*/
-
-                stopMB(); // Stops the LED screen and buzzer, and if a MB sets edge connector pins to inputs
-                if(whatAmI == A_HB)
-                {
-                    stopHB(); // stops servos and LEDs on the HB
-                }
-
-                bytesUsed = 4; // This command sends 0xCB followed by 0xFF three times
-
-                // Hack to make BirdBlox happy
-                /*if(!notifyOn)
-                {
-                    notifyOn = true;
-                    create_fiber(send_ble_data); // Sends sensor data every 30 ms
-                }*/
-                break;
-            case SET_CALIBRATE:
-                // If you receive three more bytes
-                //if(getCommands(ble_read_buff, 1, 4))
-                //{
-                // Turn off notifications while calibrating
-                notifyOn = false;
-                // read three more bytes to flush the 0xFFs out of the buffer - decided not to do this
-                /*for(int i = 0; i < 3; i++)
-                {
-                    if(bleuart->isReadable())
-                    {
-                        ble_read_buff[i+1] = bleuart->getc(ASYNC);
-                    }
-                }*/
-                //sensorPacketCount = 0;
-                uBit.compass.calibrate();
-                calibrationAttempt = true;
-                calibrationSuccess = uBit.compass.isCalibrated(); // probably not necessary
-                notifyOn = true; // restart notifications
-                create_fiber(send_ble_data);
-                bytesUsed = 4; // This command sends 0xCE followed by 0xFF three times
-                //}
-                break;
-            // Sets the Hummingbird outputs and, in some cases, the micro:bit's buzzer
-            case SETALL_SPI:
-                if(whatAmI == A_HB)
-                {
-                    if(getCommands(ble_read_buff, 1, HB_SETALL_LENGTH)) {
-                        bytesUsed = HB_SETALL_LENGTH; // 19 bytes right now
-                        setAllHB(ble_read_buff, bytesUsed);
-                    }
-                }
-                if(whatAmI == A_MB)
-                {
-                    if(getCommands(ble_read_buff, 1, HB_SETALL_LENGTH)) {
-                        // setting the buzzer
-                        uint16_t buzzPeriod = (ble_read_buff[15]<<8) + ble_read_buff[16];
-                        uint16_t buzzDuration = (ble_read_buff[17]<<8) + ble_read_buff[18];
-                        setBuzzer(buzzPeriod, buzzDuration);                    
-                        bytesUsed = HB_SETALL_LENGTH; // 19 bytes right now
-                    }    
-                }
-                break;
-            // Sets the Finch LEDs + buzzer
-            case FINCH_SETALL_LED:
-                if(whatAmI == A_FINCH)
-                {
-                    if(getCommands(ble_read_buff, 1, FINCH_SETALL_LENGTH)) {
                         bytesUsed = FINCH_SETALL_LENGTH; // 20 bytes
-                        setAllFinchLEDs(ble_read_buff, bytesUsed);
+                        uint8_t packetCommands[bytesUsed];
+                        for(int i = 0; i < bytesUsed; i++)
+                        {
+                            packetCommands[i] = ble_read_buff[i+commandCount];
+                        }                             
+                        setAllFinchLEDs(packetCommands, bytesUsed);           
+                        commandCount += bytesUsed;
                     }
-                }
-                break;
-            // Sets the Finch motors + LED screen, depending on mode
-            case FINCH_SETALL_MOTORS_MLED:
-                if(whatAmI == A_FINCH)
-                {
-                    // getting the mode byte
-                    if(readOneByte(ble_read_buff, 1)) 
+                    else {
+                        commandCount++;
+                    }
+                    break;
+                // Sets the Finch motors + LED screen, depending on mode
+                case FINCH_SETALL_MOTORS_MLED:
+                    commandCount++;
+                    if(whatAmI == A_FINCH && bufferLength > commandCount)
                     {
                         // Use only the top 3 bits to determine mode
-                        uint8_t mode = (ble_read_buff[1]>>5) & LED_MOTOR_MODE_MASK;
-                        bool sendCommand = false;
+                        uint8_t mode = (ble_read_buff[commandCount]>>5) & LED_MOTOR_MODE_MASK;
                         switch(mode) {
                             case PRINT:
-                                bytesUsed = (ble_read_buff[1] & 0x0F)+2; // We're using two command bytes + the message to print
-                                sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
+                                bytesUsed = (ble_read_buff[commandCount] & 0x0F)+2; // We're using two command bytes + the message to print
                                 break;
                             case FINCH_SYMBOL:
                                 bytesUsed = 6; // using two commands bytes + 4 for the symbol
-                                sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
                                 break;
                             case MOTORS:
                                 bytesUsed = 10; // 2 command bytes + 8 to set motors
-                                sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
                                 break;
                             case MOTORS_SYMBOL:
                                 bytesUsed = 14; // 2 command bytes + 8 for motors + 4 for symbol
-                                sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
                                 break;
                             case MOTORS_PRINT:
-                                bytesUsed = (ble_read_buff[1] & 0x0F)+10; // We're using two command bytes + 8 for motor + the message to print
-                                sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
+                                bytesUsed = (ble_read_buff[commandCount] & 0x0F)+10; // We're using two command bytes + 8 for motor + the message to print
                                 break;
                         }
-                        if(sendCommand)
+
+                        if(bufferLength >= (commandCount+bytesUsed-1)) // subtracting by 1 since we incremented the commandCounter
                         {
-                            setAllFinchMotorsAndLEDArray(ble_read_buff, bytesUsed);
+                            commandCount--; // getting us back to the command byte
+                            uint8_t packetCommands[bytesUsed];
+                            if(bytesUsed == 10 || bytesUsed == 14) {
+                                uBit.serial.sendChar(bytesUsed, SYNC_SPINWAIT);
+                            }
+                            for(int i = 0; i < bytesUsed; i++)
+                            {
+                                packetCommands[i] = ble_read_buff[i+commandCount];
+                                if(bytesUsed == 10 || bytesUsed == 14) {
+                                    uBit.serial.sendChar(packetCommands[i], SYNC_SPINWAIT);
+                                }
+                            }   
+                            setAllFinchMotorsAndLEDArray(packetCommands, bytesUsed);
+                            commandCount += bytesUsed;
                         }
                     }
-                }
-                break;    
-            // Finch Stop command
-            case FINCH_STOPALL:
-                stopMB(); // turn off LED array and buzzer
-                if(whatAmI == A_FINCH) {
-                    stopFinch(); // Stop the Finch moving and LEDs
-                }
-                bytesUsed = 1; // 0xDF
-                // This is a hack to get notifications to start in BirdBlox
-                /*if(!notifyOn)
-                {
-                    notifyOn = true;
-                    create_fiber(send_ble_data); // Sends sensor data every 30 ms
-                }*/
-                break;
-            case FINCH_RESET_ENCODERS:
-                if(whatAmI == A_FINCH) {
-                    resetEncoders();
-                }
-                bytesUsed = 1; // 0xD5
-                break;
-            default:
-                // Improper command, flush the buffer by the length of the packet
-                //getCommands(ble_read_buff, 1, bufferLength);
-                break;
+                    break;    
+                // Finch Stop command
+                case FINCH_STOPALL:
+                    stopMB(); // turn off LED array and buzzer
+                    if(whatAmI == A_FINCH) {
+                        stopFinch(); // Stop the Finch moving and LEDs
+                    }
+                    bytesUsed = 1; // 0xDF
+                    commandCount++;
+                    break;
+                case FINCH_RESET_ENCODERS:
+                    if(whatAmI == A_FINCH) {
+                        resetEncoders();
+                    }
+                    bytesUsed = 1; // 0xD5
+                    commandCount++;
+                    break;
+                default:
+                    commandCount++;
+                    // Improper command, flush the buffer by the length of the packet
+                    //getCommands(ble_read_buff, 1, bufferLength);
+                    break;
+            }
+            //bleuart->resetBuffer(); // resets the buffer if we have read everything
+            //if(serialDebug)
+            //{
+            //uBit.serial.sendChar(0xEE, SYNC_SPINWAIT); // for debugging only
         }
         processCommand = false; // we are done processing commands, so now we should allow sensor packets to go out
-        bleuart->resetBuffer(); // resets the buffer if we have read everything
-        //if(serialDebug)
-        //{
-            uBit.serial.sendChar(0xEE, ASYNC); // for debugging only
-        //}
     }
     else {
         fiber_sleep(1);
@@ -488,6 +520,12 @@ void assembleSensorData()
 bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length)
 {
     uint8_t timeOut = 0;
+    // Check to make sure we didn't get some crazy command
+    if(length > 20)
+    {
+        //uBit.serial.sendChar(0xFC, SYNC_SPINWAIT);
+        return false;
+    }
     for(int i = startIndex; i < length; i++)
     {
         timeOut=0;
@@ -496,17 +534,17 @@ bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length)
         {
             fiber_sleep(1);
             timeOut++;     
-            uBit.serial.sendChar(timeOut, ASYNC);
+            //uBit.serial.sendChar(0x40+timeOut, SYNC_SPINWAIT);
         }
         if(timeOut < 5) {        
             commands[i] = bleuart->getc(ASYNC);
             //if(serialDebug)
             //{
-                uBit.serial.sendChar(commands[i], ASYNC); // for debugging only
+             //   //uBit.serial.sendChar(commands[i], ASYNC); // for debugging only
             //}
         }
         else {
-            uBit.serial.sendChar(0xFE, ASYNC);
+            //uBit.serial.sendChar(0xFE, SYNC_SPINWAIT);
             return false;
         }        
         // If there's a character, read it
@@ -529,20 +567,20 @@ bool readOneByte(uint8_t commands[], int index)
     {
         fiber_sleep(1);
         timeOut++;     
-        uBit.serial.sendChar(timeOut, ASYNC);
+        //uBit.serial.sendChar(timeOut, ASYNC);
     }
     if(timeOut < 5) {        
     //if(bleuart->isReadable()) {  
         commands[index] = bleuart->getc(ASYNC);
         //if(serialDebug)
         //{
-            uBit.serial.sendChar(commands[index], ASYNC); // for debugging only
+            //uBit.serial.sendChar(commands[index], ASYNC); // for debugging only
         //}
         return true;
     }
     // if we couldn't read, return failure
     else {
-        uBit.serial.sendChar(0xFD, ASYNC);
+        //uBit.serial.sendChar(0xFD, ASYNC);
         return false;
     }    
 }
@@ -797,3 +835,249 @@ void bleSerialCommand()
 
 }
 */
+
+
+// Old code
+/*
+    if(bleConnected && bleuart->isReadable() && (processCommand == false))
+    {
+        bufferLength = bleuart->getc(ASYNC); //bleuart->rxBufferedSize(); // for debugging only
+        uBit.serial.sendChar(bufferLength, SYNC_SPINWAIT); // for debugging only
+        uint8_t ble_read_buff[bufferLength]; // local buffer to hold our command packet
+        memset(ble_read_buff, 0, bufferLength); // resetting the packet
+        bufferMem = bleuart->rxBufferedSize();
+        uBit.serial.sendChar(bufferMem, SYNC_SPINWAIT); // for debugging only
+        //bufferLength = bleuart->rxBufferedSize(); // for debugging only
+        ////uBit.serial.sendChar(bufferLength, ASYNC); // for debugging only
+        //memset(ble_read_buff, 0, 20); // resetting the packet
+        // Check that the sensor packet isn't currently in the process of being set/sent
+        /*uint8_t timeOut = 0;
+        // give it a few tries before giving up on reading the command packet
+        while(processCommand && timeOut < 5)
+        {
+           fiber_sleep(1);
+           timeOut++;     
+        }
+        processCommand = true; // set a flag that tells the sensor packet function not to interrupt this
+        //ble_read_buff[0] = bleuart->getc(ASYNC); // reads immediately
+        //if(getCommands(ble_read_buff, 0, bufferLength))
+        if(bleuart->read(ble_read_buff, bufferLength, ASYNC) > 0)
+        {
+            uBit.serial.sendChar(ble_read_buff[0], SYNC_SPINWAIT); // for debugging only
+        
+            bytesUsed = 1; // we have now used at least one byte
+            sleepCounter = 0; // reset the sleep counter since we have received a command
+            // Switch on the first command byte
+            switch(ble_read_buff[0])
+            {
+                case SET_LEDARRAY:
+                    if(whatAmI == A_MB || whatAmI == A_HB) {
+                        // try to read the second byte, give it five tries before giving up
+                        //if(readOneByte(ble_read_buff, 1))
+                        //{
+                            // If our command is to print a symbol, then we're using 6 bytes
+                            if(ble_read_buff[1] == SYMBOL)
+                            {
+                                bytesUsed = 6;  // 2 bytes for commands, 4 for the symbol
+                            }
+                            else if(ble_read_buff[1] & SCROLL)
+                            {
+                                bytesUsed =  (ble_read_buff[1] & 0x1F) + 2; // We use 2 bytes + the length of the message
+                            }
+                            else {
+                                bytesUsed = 2; // If this happens, it is a clear screen command
+                            }
+                            // get the rest of the command packet, only do something with it if you have enough data
+                           // if(getCommands(ble_read_buff, 2, bytesUsed)) {
+                                decodeAndSetDisplay(ble_read_buff, bytesUsed);
+                           // }
+                        //}
+                    }
+                    break;
+                case SET_FIRMWARE: 
+                case FINCH_SET_FIRMWARE:     
+                    // read three more bytes to flush the 0xFFs out of the buffer - decided not to do this since sometimes only 1 byte is sent
+                    /*for(int i = 0; i < 3; i++)
+                    {
+                        if(bleuart->isReadable())
+                        {
+                            ble_read_buff[i+1] = bleuart->getc(ASYNC);
+                        }
+                    } */  
+               /*     returnFirmwareData();
+                    break;                
+                case NOTIFICATIONS:
+                   // if(readOneByte(ble_read_buff, 1)) {
+                        if(ble_read_buff[1] == START_NOTIFY) {
+                            if(!notifyOn)
+                            {
+                                
+                                notifyOn = true;
+                                create_fiber(send_ble_data); // Sends sensor data every 30 ms
+                            }
+                        }
+                        else if(ble_read_buff[1] == STOP_NOTIFY) {
+                            notifyOn = false;
+                        }
+                        bytesUsed = 2; // Uses two bytes
+                   // }
+                    break;
+                case MICRO_IO:
+                    if(whatAmI == A_MB) {
+                     //   if(getCommands(ble_read_buff, 1, 8))
+                     //   {
+                                decodeAndSetPins(ble_read_buff);
+                                bytesUsed = 8; // This command always uses 8 bytes
+                     //   }
+                    }
+                    break;
+                case STOP_ALL:
+                    // If you receive three more bytes
+                    // read three more bytes to flush the 0xFFs out of the buffer
+                    /*for(int i = 0; i < 3; i++)
+                    {
+                        if(bleuart->isReadable())
+                        {
+                            ble_read_buff[i+1] = bleuart->getc(ASYNC);
+                        }
+                    }*/
+/*
+                    stopMB(); // Stops the LED screen and buzzer, and if a MB sets edge connector pins to inputs
+                    if(whatAmI == A_HB)
+                    {
+                        stopHB(); // stops servos and LEDs on the HB
+                    }
+
+                    bytesUsed = 4; // This command sends 0xCB followed by 0xFF three times
+
+                    // Hack to make BirdBlox happy
+                    /*if(!notifyOn)
+                    {
+                        notifyOn = true;
+                        create_fiber(send_ble_data); // Sends sensor data every 30 ms
+                    }*/
+                 /*   break;
+                case SET_CALIBRATE:
+                    // If you receive three more bytes
+                    //if(getCommands(ble_read_buff, 1, 4))
+                    //{
+                    // Turn off notifications while calibrating
+                    notifyOn = false;
+                    // read three more bytes to flush the 0xFFs out of the buffer - decided not to do this
+                    /*for(int i = 0; i < 3; i++)
+                    {
+                        if(bleuart->isReadable())
+                        {
+                            ble_read_buff[i+1] = bleuart->getc(ASYNC);
+                        }
+                    }*/
+                    //sensorPacketCount = 0;
+             /*       uBit.compass.calibrate();
+                    calibrationAttempt = true;
+                    calibrationSuccess = uBit.compass.isCalibrated(); // probably not necessary
+                    notifyOn = true; // restart notifications
+                    create_fiber(send_ble_data);
+                    bytesUsed = 4; // This command sends 0xCE followed by 0xFF three times
+                    //}
+                    break;
+                // Sets the Hummingbird outputs and, in some cases, the micro:bit's buzzer
+                case SETALL_SPI:
+                    if(whatAmI == A_HB)
+                    {
+                      //  if(getCommands(ble_read_buff, 1, HB_SETALL_LENGTH)) {
+                            bytesUsed = HB_SETALL_LENGTH; // 19 bytes right now
+                            setAllHB(ble_read_buff, bytesUsed);
+                      //  }
+                    }
+                    if(whatAmI == A_MB)
+                    {
+                     //   if(getCommands(ble_read_buff, 1, HB_SETALL_LENGTH)) {
+                            // setting the buzzer
+                            uint16_t buzzPeriod = (ble_read_buff[15]<<8) + ble_read_buff[16];
+                            uint16_t buzzDuration = (ble_read_buff[17]<<8) + ble_read_buff[18];
+                            setBuzzer(buzzPeriod, buzzDuration);                    
+                            bytesUsed = HB_SETALL_LENGTH; // 19 bytes right now
+                      //  }    
+                    }
+                    break;
+                // Sets the Finch LEDs + buzzer
+                case FINCH_SETALL_LED:
+                    if(whatAmI == A_FINCH)
+                    {
+                       // if(getCommands(ble_read_buff, 1, FINCH_SETALL_LENGTH)) {
+                            bytesUsed = FINCH_SETALL_LENGTH; // 20 bytes
+                            setAllFinchLEDs(ble_read_buff, bytesUsed);
+                       // }
+                    }
+                    break;
+                // Sets the Finch motors + LED screen, depending on mode
+                case FINCH_SETALL_MOTORS_MLED:
+                    if(whatAmI == A_FINCH)
+                    {
+                        // getting the mode byte
+                       /* if(readOneByte(ble_read_buff, 1)) 
+                        {
+                            // Use only the top 3 bits to determine mode
+                            uint8_t mode = (ble_read_buff[1]>>5) & LED_MOTOR_MODE_MASK;
+                            bool sendCommand = false;
+                            switch(mode) {
+                                case PRINT:
+                                    bytesUsed = (ble_read_buff[1] & 0x0F)+2; // We're using two command bytes + the message to print
+                                    sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
+                                    break;
+                                case FINCH_SYMBOL:
+                                    bytesUsed = 6; // using two commands bytes + 4 for the symbol
+                                    sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
+                                    break;
+                                case MOTORS:
+                                    bytesUsed = 10; // 2 command bytes + 8 to set motors
+                                    sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
+                                    break;
+                                case MOTORS_SYMBOL:
+                                    bytesUsed = 14; // 2 command bytes + 8 for motors + 4 for symbol
+                                    sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
+                                    break;
+                                case MOTORS_PRINT:
+                                    bytesUsed = (ble_read_buff[1] & 0x0F)+10; // We're using two command bytes + 8 for motor + the message to print
+                                    sendCommand = getCommands(ble_read_buff, 2, bytesUsed); // get the rest of the commands
+                                    break;
+                            }
+                            if(sendCommand)
+                            {*/
+                        /*        setAllFinchMotorsAndLEDArray(ble_read_buff, bufferLength);
+                            //}
+                        //}
+                    }
+                    break;    
+                // Finch Stop command
+                case FINCH_STOPALL:
+                    stopMB(); // turn off LED array and buzzer
+                    if(whatAmI == A_FINCH) {
+                        stopFinch(); // Stop the Finch moving and LEDs
+                    }
+                    bytesUsed = 1; // 0xDF
+                    // This is a hack to get notifications to start in BirdBlox
+                    /*if(!notifyOn)
+                    {
+                        notifyOn = true;
+                        create_fiber(send_ble_data); // Sends sensor data every 30 ms
+                    }*/
+            /*        break;
+                case FINCH_RESET_ENCODERS:
+                    if(whatAmI == A_FINCH) {
+                        resetEncoders();
+                    }
+                    bytesUsed = 1; // 0xD5
+                    break;
+                default:
+                    // Improper command, flush the buffer by the length of the packet
+                    //getCommands(ble_read_buff, 1, bufferLength);
+                    break;
+            }
+            processCommand = false; // we are done processing commands, so now we should allow sensor packets to go out
+            //bleuart->resetBuffer(); // resets the buffer if we have read everything
+            //if(serialDebug)
+            //{
+            //uBit.serial.sendChar(0xEE, SYNC_SPINWAIT); // for debugging only
+        }
+    } */
