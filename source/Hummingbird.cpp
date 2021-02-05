@@ -22,6 +22,10 @@ void stopHB()
 {
     uint8_t stopCommand[4] = {STOP_ALL, 0xFF, 0xFF, 0xFF};
     spiWrite(stopCommand, 4);
+    // Setting the buzzer, and HB LED ports 2 and 3 to 0
+    uBit.io.P0.setAnalogValue(0);
+    uBit.io.P2.setAnalogValue(0);
+    uBit.io.P8.setAnalogValue(0);    
 }
 
 // Sets all Hummingbird outputs in one go

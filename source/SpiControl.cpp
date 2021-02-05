@@ -32,20 +32,20 @@ void spiWrite(uint8_t* writeBuffer, uint8_t length)
         spiActive = true;
 
         uBit.io.P16.setDigitalValue(0);
-        NRFX_DELAY_US(SS_WAIT);
+        //NRFX_DELAY_US(SS_WAIT);
         for(int i = 0; i < length-1; i++)
         {
             spi.write(writeBuffer[i]);
-            NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
+        //    NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
         }
         spi.write(writeBuffer[length-1]);
-        NRFX_DELAY_US(SS_WAIT);
+        //NRFX_DELAY_US(SS_WAIT);
         uBit.io.P16.setDigitalValue(1);
         spiActive = false;
     }
 }
 
-void spiReadHB(uint8_t (&readBuffer)[SENSOR_SEND_LENGTH])
+void spiReadHB(uint8_t (&readBuffer)[V2_SENSOR_SEND_LENGTH])
 {
     // Wait up to 5 ms for another SPI command to complete
     uint8_t timeOut = 0;
@@ -88,16 +88,16 @@ void spiReadFinch(uint8_t (&readBuffer)[FINCH_SPI_SENSOR_LENGTH])
         spiActive = true;
 
         uBit.io.P16.setDigitalValue(0);
-        NRFX_DELAY_US(SS_WAIT);
+        //NRFX_DELAY_US(SS_WAIT);
         readBuffer[0] = spi.write(0xDE);
-        NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
+        //NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
         for(int i = 1; i < FINCH_SPI_SENSOR_LENGTH-1; i++)
         {
             readBuffer[i] = spi.write(0xFF);
-            NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
+        //    NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
         }
         readBuffer[FINCH_SPI_SENSOR_LENGTH-1] = spi.write(0xFF);
-        NRFX_DELAY_US(SS_WAIT);
+        //NRFX_DELAY_US(SS_WAIT);
         uBit.io.P16.setDigitalValue(1);
         spiActive = false;
     }

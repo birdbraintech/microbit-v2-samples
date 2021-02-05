@@ -269,7 +269,7 @@ void setBuzzer(uint16_t period, uint16_t duration)
     }
 }
 
-void getEdgeConnectorVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
+void getEdgeConnectorVals(uint8_t (&sensor_vals)[V2_SENSOR_SEND_LENGTH])
 {
     for(int i = 0; i < 3; i++) {
         if(pinsInputs[i])
@@ -279,7 +279,7 @@ void getEdgeConnectorVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
     }
 }
 
-void getAccelerometerVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
+void getAccelerometerVals(uint8_t (&sensor_vals)[V2_SENSOR_SEND_LENGTH])
 {
     // Inverting the sign of X and Y to match how the V1 works
     sensor_vals[4] = 255-convertAccelVal(uBit.accelerometer.getX());
@@ -293,7 +293,7 @@ void getAccelerometerVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
         sensor_vals[7] = sensor_vals[7] & 0xFE; // clear the bit
 }
 
-void getMagnetometerVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
+void getMagnetometerVals(uint8_t (&sensor_vals)[V2_SENSOR_SEND_LENGTH])
 {
     uint16_t convertedVal;
     // Converting to v1 readings by inverting the sign
@@ -310,7 +310,7 @@ void getMagnetometerVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
     sensor_vals[13] = convertedVal&0x00FF;
 }
 
-void getButtonVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
+void getButtonVals(uint8_t (&sensor_vals)[V2_SENSOR_SEND_LENGTH], bool V2Notification)
 {
     if(uBit.buttonA.isPressed())
     {
@@ -328,6 +328,16 @@ void getButtonVals(uint8_t (&sensor_vals)[SENSOR_SEND_LENGTH])
     else
     {
         sensor_vals[7] = sensor_vals[7] | 0x20; // set the button B bit - this is read as false
+    }
+    if(V2Notification)
+    {
+        if(uBit.logo.isPressed() && V2Notification)
+        {
+            sensor_vals[7] = sensor_vals[7] & 0xFD; // clear the touch bit - this is read as true 
+        }
+        else{
+            sensor_vals[7] = sensor_vals[7] | 0x02; // set the touch bit - this is read as false 
+        }
     }
 }
 
@@ -380,7 +390,7 @@ void getMagnetometerValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH])
 }
 
 // Get the state of the buttons
-void getButtonValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH])
+void getButtonValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH], bool V2Notification)
 {
     if(uBit.buttonA.isPressed())
     {
@@ -398,6 +408,16 @@ void getButtonValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH])
     else
     {
         sensor_vals[16] = sensor_vals[16] | 0x20; // set the button B bit - this is read as false
+    }
+    if(V2Notification)
+    {
+        if(uBit.logo.isPressed() && V2Notification)
+        {
+            sensor_vals[16] = sensor_vals[16] & 0xFD; // clear the touch bit - this is read as true 
+        }
+        else{
+            sensor_vals[16] = sensor_vals[16] | 0x02; // set the touch bit - this is read as false 
+        }
     }    
 }
 

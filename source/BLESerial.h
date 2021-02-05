@@ -21,6 +21,7 @@
 #define STOP_ALL                                  0xCB
 #define NOTIFICATIONS                             0x62
 #define START_NOTIFY                              0x67
+#define START_NOTIFYV2                            0x70
 #define STOP_NOTIFY                               0x73
 
 #define FINCH_SETALL_LED			              0xD0
@@ -40,6 +41,7 @@
 #define HARDWARE_VERSION				          0x01
 
 #define SENSOR_SEND_LENGTH                	      14
+#define V2_SENSOR_SEND_LENGTH             	      16
 #define FINCH_SENSOR_SEND_LENGTH                  20
 #define BLE__MAX_PACKET_LENGTH                    20 
 

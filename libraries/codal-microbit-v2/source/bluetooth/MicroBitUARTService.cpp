@@ -231,7 +231,7 @@ int MicroBitUARTService::getc(MicroBitSerialMode mode)
             eventAfter(1, mode);
     }
     // BirdBrain change - block writing while we read
-    while(writingToBuffer);
+    //while(writingToBuffer);
     //writingToBuffer = true;
     char c = rxBuffer[rxBufferTail];
 
@@ -404,7 +404,7 @@ int MicroBitUARTService::read(uint8_t *buf, int len, MicroBitSerialMode mode)
     int i = 0;
 
     // BIRDBRAIN CHANGE
-    while(writingToBuffer);
+    //while(writingToBuffer);
     //writingToBuffer = true;
 
     if(mode == ASYNC)

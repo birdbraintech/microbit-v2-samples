@@ -15,7 +15,6 @@ bool rightMotorMove     = false ;
 bool rightMotorForwardDirection = false ;
 
 uint8_t prevFinchSetAllLEDs[FINCH_SETALL_LENGTH];
-uint8_t prevFinchSetMotorsScreen[FINCH_SETALL_LENGTH];
 
 // Helper function to record how we're setting the motors
 void moveMotor(uint8_t* currentCommand);
@@ -27,7 +26,6 @@ void initFinch()
     resetEncoders();
     // Init the previous Finch LED command array
     memset(prevFinchSetAllLEDs, 0, FINCH_SETALL_LENGTH);
-    memset(prevFinchSetMotorsScreen, 0, FINCH_SETALL_LENGTH);
 }
 
 // Sends the stop command to the Finch
@@ -64,7 +62,7 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
 
     // Double check that the command contains enough data for us to proceed and that it isn't
     // an identical command from one sent previously
-    if(length >= FINCH_SETALL_LENGTH && updateCommand)
+    if(length >= FINCH_SETALL_LENGTH)
     {    
         // setting the buzzer
         uint16_t buzzPeriod = (commands[16]<<8) + commands[17];
@@ -72,7 +70,8 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
         setBuzzer(buzzPeriod, buzzDuration);
 
         // setting the Finch LEDs
-        spiWrite(commands, FINCH_SPI_LENGTH);
+        if(updateCommand)
+            spiWrite(commands, FINCH_SPI_LENGTH);
     }
 }
 
@@ -82,9 +81,9 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
     uint8_t mode;
     uint8_t bytesUsed = 2; // we have always used at least two bytes
     uint8_t print_length = 0; // Length of the message to print
-
-    bool updateCommand = false;
+/*
     bool updateMotorCommand = false;
+    bool updateScreenCommand = false;
 
     if(length <= 10)
     {
@@ -116,9 +115,9 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
             prevFinchSetMotorsScreen[i] = commands[i];
         }        
     }
-
+*/
     // Making sure we have enough data and that the data is fresh
-    if(length >= 2 && (updateCommand||updateMotorCommand))
+    if(length >= 2)
     {
         // Use only the top 3 bits to determine mode
         mode = (commands[1]>>5) & LED_MOTOR_MODE_MASK;
@@ -160,10 +159,8 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                     {
                         symbolCommands[i+2] = commands[i+10];
                     }
-                    if(updateCommand)
-                        decodeAndSetDisplay(symbolCommands, 6);
-                    if(updateMotorCommand)
-                        moveMotor(commands); // safe to send the symbol commands too, they get overwritten with zeros
+                    decodeAndSetDisplay(symbolCommands, 6);
+                    moveMotor(commands); // safe to send the symbol commands too, they get overwritten with zeros
                     bytesUsed = 14;
                 }
                 break;
@@ -354,9 +351,9 @@ void moveMotor(uint8_t* currentCommand)
         }
 
         // pad the packet to be 16 bytes
-        for(int i = 10; i < FINCH_SPI_LENGTH; i++)
+        /*for(int i = 10; i < FINCH_SPI_LENGTH; i++)
             currentCommand[i] = 0x00;
-
+        */
         spiWrite(currentCommand,FINCH_SPI_LENGTH);
     }
 }
