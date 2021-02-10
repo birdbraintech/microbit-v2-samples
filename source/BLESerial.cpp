@@ -5,26 +5,20 @@
 #include "Finch.h"
 #include "SpiControl.h"
 
-//uint8_t ble_read_buff[BLE__MAX_PACKET_LENGTH]; // incoming commands from the tablet/computer
-//uint8_t sensor_vals[BLE__MAX_PACKET_LENGTH]; // sensor data to send to the tablet/computer
 bool bleConnected = false; // Holds if connected over BLE
 bool notifyOn = false; // Holds if notifications are being sent
-bool calibrationSuccess = false;
+bool calibrationSuccess = false; // Holds if calibration succeeded
 bool calibrationAttempt = false; // Holds if we've made a calibration attempt yet
 MicroBitUARTService *bleuart;
 bool processCommand = false; // Flag to hold off sending sensor data until we have first processed an inbound command
 bool v2report = false; // Flag to hold if we are reporting V2 data
 
 
-uint8_t sensorPacketCount = 0; // to send a sensor packet every 20 ms or so 
-uint8_t sense_count = 0;
+// Checks if the Finch has received any BLE messages recently - if not, Finch will go to sleep
 uint16_t sleepCounter = 0;
 
-// For debugging
+// Holds length of the inbound packet buffer
 uint8_t bufferLength = 0;
-uint8_t bufferReport = 0;
-uint8_t bufferMem = 0;
-bool serialDebug = false; // switch to start pumping packets over serial to see what the device receives over BLE
 
 // Convenience function to read the command packet, returns false if it timed out
 bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length);
@@ -32,7 +26,7 @@ bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length);
 // Convenience function to read a single byte, index is the position in the array where we want to put the byte
 bool readOneByte(uint8_t commands[], int index);
 
-// Sends BLE sensor data every 30 ms
+// Sends BLE sensor data approx every 30 ms
 void send_ble_data()
 {
     while(notifyOn) {
@@ -81,6 +75,7 @@ void sleepTimer()
         if(whatAmI == A_FINCH)
         {
             sleepCounter++;
+            // Currently shuts down after ten minutes
             if(sleepCounter > FINCH_INACTIVITY_TIMEOUT)
             {
                 // To keep the disconnect sound from playing multiple times   
@@ -123,7 +118,7 @@ void flashInitials()
 // Initializes the UART
 void bleSerialInit(ManagedString devName) 
 {
-    bleuart = new MicroBitUARTService(*uBit.ble, 240, 32); //127, 127); // increasing the buffer size to catch more near simultaneous commands
+    bleuart = new MicroBitUARTService(*uBit.ble, 240, 32);  // increasing the buffer size to catch more near simultaneous commands
 
     fiber_sleep(10); //Give the UART service a moment to register
 
@@ -132,23 +127,14 @@ void bleSerialInit(ManagedString devName)
     
     // Waiting for the BLE stack to stabilize
     fiber_sleep(10);
-    // Error checking code - uncomment if you need to check this
-    //err= uBit.ble->configAdvertising(devName);
-    //uint32_t *err;
-    //char buffer[9];    
-    /*
-    for(int i = 0; i < 4; i++) {
-        sprintf(buffer,"%lX",*(err+i)); //buffer now contains sn as a null terminated string
-        ManagedString serialNumberAsHex(buffer);
-        uBit.display.scroll(serialNumberAsHex);
-    }*/
+    
     uBit.ble->setTransmitPower(7); 
     uBit.ble->advertise();
     
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_CONNECTED, onConnected, MESSAGE_BUS_LISTENER_REENTRANT);
     uBit.messageBus.listen(MICROBIT_ID_BLE, MICROBIT_BLE_EVT_DISCONNECTED, onDisconnected, MESSAGE_BUS_LISTENER_REENTRANT);
     create_fiber(flashInitials); // Start flashing since we're disconnected
-    create_fiber(sleepTimer); 
+    create_fiber(sleepTimer);  // Start a fiber to check if we need to switch off the Finch due to inactivity
     v2report = false; // making sure we start in this state
 }
 
@@ -156,65 +142,26 @@ void bleSerialInit(ManagedString devName)
 
 void bleSerialCommand()
 {
-    //uint8_t buff_length = bleuart->rxBufferedSize(); // checking how many bytes we have in the buffer
-
-    //uint8_t ble_read_buff[20]; // local buffer to hold our command packet
+    // This tracks how many bytes we've used. Not really used at the moment
     uint8_t bytesUsed = 0;
-
-    //memset(ble_read_buff, 0, 20); // resetting the packet
-
-
-    
-    //ble_read_buff[0] = bleuart->getc(SYNC_SLEEP); // waits until something shows up
 
     // Run this loop if there is data in the buffer 
     // This allows multiple commands to execute sequentially since it just gets called over and over in the main while loop
     if(bleConnected && bleuart->isReadable() && (processCommand == false))
     {
         processCommand = true; // set a flag that tells the sensor packet function not to interrupt this
-        bufferLength = bleuart->rxBufferedSize(); //bleuart->getc(ASYNC); 
+        bufferLength = bleuart->rxBufferedSize(); // Get the length of the buffer, can contain multiple packets
 
         uint8_t ble_read_buff[bufferLength]; // local buffer to hold our command packet
-        memset(ble_read_buff, 0, bufferLength); // resetting the packet
-        //bufferMem = bleuart->rxBufferedSize();
-        //uBit.serial.sendChar(bufferMem, SYNC_SPINWAIT); // for debugging only
-        //bufferLength = bleuart->rxBufferedSize(); // for debugging only
-        ////uBit.serial.sendChar(bufferLength, ASYNC); // for debugging only
-        //memset(ble_read_buff, 0, 20); // resetting the packet
-        // Check that the sensor packet isn't currently in the process of being set/sent
-        /*uint8_t timeOut = 0;
-        // give it a few tries before giving up on reading the command packet
-        while(processCommand && timeOut < 5)
-        {
-           fiber_sleep(1);
-           timeOut++;     
-        }*/
-        //ble_read_buff[0] = bleuart->getc(ASYNC); // reads immediately
-        //if(getCommands(ble_read_buff, 0, bufferLength))
+        memset(ble_read_buff, 0, bufferLength); // resetting the buffer
         bleuart->read(ble_read_buff, bufferLength, ASYNC); // read the entire buffer
         bleuart->resetBuffer(); // resets the buffer as we have read everything, not doing this seemed to cause issues
         uint8_t commandCount = 0;
 
-        // debugging only
-        if(bufferLength > 20)
-        {
-            uBit.serial.sendChar(bufferLength, SYNC_SPINWAIT); // for debugging only
-            for(int i = 0; i < bufferLength; i++)
-            {
-                uBit.serial.sendChar(ble_read_buff[i], SYNC_SPINWAIT); // for debugging only
-            }
-            uBit.serial.sendChar(0xFE, SYNC_SPINWAIT);
-            uBit.serial.sendChar(0xAF, SYNC_SPINWAIT);
-        }
         while(commandCount < bufferLength)
         {
-            //uBit.serial.sendChar(ble_read_buff[commandCount], SYNC_SPINWAIT); // for debugging only
-        
-            //bytesUsed = 1; // we have now used at least one byte
             sleepCounter = 0; // reset the sleep counter since we have received a command
             // Switch on the first command byte
-            //uBit.serial.sendChar(commandCount, SYNC_SPINWAIT);
-            //uBit.serial.sendChar(ble_read_buff[commandCount], SYNC_SPINWAIT);
             switch(ble_read_buff[commandCount])
             {
                 case SET_LEDARRAY:
@@ -232,7 +179,6 @@ void bleSerialCommand()
                             bytesUsed = 2; // If this happens, it is a clear screen command
                         }
                         // get the rest of the command packet, only do something with it if you have enough data
-                        // if(getCommands(ble_read_buff, 2, bytesUsed)) {
                         uint8_t packetCommands[bytesUsed];
                         if(bufferLength >= commandCount+bytesUsed)
                         {
@@ -251,11 +197,13 @@ void bleSerialCommand()
                         commandCount++;
                     }
                     break;
+                // Returns the firmware and hardware versions
                 case SET_FIRMWARE: 
                 case FINCH_SET_FIRMWARE:      
                     returnFirmwareData();
                     commandCount++;
-                    break;                
+                    break;        
+                // Command to start or stop sensor notifications        
                 case NOTIFICATIONS:
                     commandCount++;
                     if(bufferLength > commandCount)
@@ -319,12 +267,12 @@ void bleSerialCommand()
 
                     break;
                 case SET_CALIBRATE:
-                    notifyOn = false;
+                    notifyOn = false; // Turn off sensor notifications
                     uBit.compass.calibrate();
                     calibrationAttempt = true;
-                    calibrationSuccess = uBit.compass.isCalibrated(); // probably not necessary
+                    calibrationSuccess = uBit.compass.isCalibrated();
                     notifyOn = true; // restart notifications
-                    create_fiber(send_ble_data);
+                    create_fiber(send_ble_data); // Restart the notification fiber
                     commandCount++;
                     bytesUsed = 4; // This command sends 0xCE followed by 0xFF three times (or sometimes just 0xCE)
                     break;
@@ -409,15 +357,9 @@ void bleSerialCommand()
                             uint8_t packetCommands[FINCH_SPI_LENGTH]; // need to make the packet as long as the SPI transfer
                             memset(packetCommands, 0, FINCH_SPI_LENGTH); // 0 out the array
                             
-                            /*if(bytesUsed == 10 || bytesUsed == 14) {
-                                uBit.serial.sendChar(bytesUsed, SYNC_SPINWAIT);
-                            }*/
                             for(int i = 0; i < bytesUsed; i++)
                             {
                                 packetCommands[i] = ble_read_buff[i+commandCount];
-                               /* if(bytesUsed == 10 || bytesUsed == 14) {
-                                    uBit.serial.sendChar(packetCommands[i], SYNC_SPINWAIT);
-                                }*/
                             }  
                             // set the motors and the LED screen 
                             setAllFinchMotorsAndLEDArray(packetCommands, bytesUsed);
@@ -449,16 +391,6 @@ void bleSerialCommand()
         }
         processCommand = false; // we are done processing commands, so now we should allow sensor packets to go out
     }
-
-    // send every 20 ms?
-    /*else {
-        sensorPacketCount++;
-        if(sensorPacketCount > 20 && notifyOn)
-        {
-            assembleSensorData();
-            sensorPacketCount=0;
-        }
-    }*/
 }
 
 // Collects the notification data and sends it to the computer/tablet
@@ -467,15 +399,14 @@ void assembleSensorData()
     if(bleConnected && notifyOn)
     {
         uint8_t timeOut = 0;
-        // give it a few tries before giving up on sending a sensor packet
 
+        // give it a few tries before giving up on sending a sensor packet
         while(processCommand && timeOut < 5)
         {
            fiber_sleep(1);
            timeOut++;     
         }
-
-        processCommand = true;
+        processCommand = true; // This will keep us from executing a command while we gather and send sensor data
 
         if(whatAmI == A_FINCH)
         {
@@ -488,7 +419,7 @@ void assembleSensorData()
 
             getAccelerometerValsFinch(sensor_vals);
             getMagnetometerValsFinch(sensor_vals);
-            getButtonValsFinch(sensor_vals, v2report);
+            getButtonValsFinch(sensor_vals, v2report); // Gets the touch sensor if v2report is true
 
             // Probably not necessary as we get feedback from the LED screen            
             if(calibrationAttempt)
@@ -543,7 +474,7 @@ void assembleSensorData()
                     temperature = 0;
                 else if(temperature > 63)
                     temperature = 63;
-                    
+                // Combining temperature and battery level into 1 byte    
                 sensor_vals[6] = (uint8_t)uBit.thermometer.getTemperature()<<2 | sensor_vals[6];
             }
 
@@ -581,16 +512,23 @@ void assembleSensorData()
                 sensor_vals[15] = (uint8_t)(temperature);
             }
             // Probably not necessary as we get feedback from the LED screen            
-            if(calibrationSuccess)
+            if(calibrationAttempt)
             {
-                sensor_vals[7] = sensor_vals[7] | 0x04;
+                if(calibrationSuccess)
+                {
+                    sensor_vals[7] = sensor_vals[7] | 0x04; // report success
+                }
+                else
+                {
+                    sensor_vals[7] = sensor_vals[7] | 0x08; // report failure
+                }
             }
 
             //send the data asynchronously
             if(v2report)
-                bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC);
+                bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC); // sends 16 bytes
             else
-                bleuart->send(sensor_vals, SENSOR_SEND_LENGTH, ASYNC);
+                bleuart->send(sensor_vals, SENSOR_SEND_LENGTH, ASYNC); // sends 14 bytes of a 16 byte array
         }
         processCommand = false; // Allow others to interrupt
     }
@@ -605,7 +543,6 @@ bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length)
     // Check to make sure we didn't get some crazy command
     if(length > 20)
     {
-        //uBit.serial.sendChar(0xFC, SYNC_SPINWAIT);
         return false;
     }
     for(int i = startIndex; i < length; i++)
@@ -616,26 +553,14 @@ bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length)
         {
             fiber_sleep(1);
             timeOut++;     
-            //uBit.serial.sendChar(0x40+timeOut, SYNC_SPINWAIT);
         }
         if(timeOut < 5) {        
             commands[i] = bleuart->getc(ASYNC);
-            //if(serialDebug)
-            //{
-             //   //uBit.serial.sendChar(commands[i], ASYNC); // for debugging only
-            //}
+
         }
         else {
-            //uBit.serial.sendChar(0xFE, SYNC_SPINWAIT);
             return false;
         }        
-        // If there's a character, read it
-        /*if(bleuart->isReadable()) {        
-            commands[i] = bleuart->getc(ASYNC);
-
-        }*/
-        // if there's no char, return failure
-
     }
     return true;
 }
@@ -649,20 +574,14 @@ bool readOneByte(uint8_t commands[], int index)
     {
         fiber_sleep(1);
         timeOut++;     
-        //uBit.serial.sendChar(timeOut, ASYNC);
     }
     if(timeOut < 5) {        
-    //if(bleuart->isReadable()) {  
         commands[index] = bleuart->getc(ASYNC);
-        //if(serialDebug)
-        //{
-            //uBit.serial.sendChar(commands[index], ASYNC); // for debugging only
-        //}
+
         return true;
     }
     // if we couldn't read, return failure
     else {
-        //uBit.serial.sendChar(0xFD, ASYNC);
         return false;
     }    
 }

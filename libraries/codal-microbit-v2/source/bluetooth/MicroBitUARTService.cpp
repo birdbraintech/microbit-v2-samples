@@ -70,8 +70,8 @@ MicroBitUARTService::MicroBitUARTService(BLEDevice &_ble, uint8_t rxBufferSize, 
     txBuffer = (uint8_t *)malloc(txBufferSize);
     rxBuffer = (uint8_t *)malloc(rxBufferSize);
 
-    rxBufferHead = 0;
-    rxBufferTail = 0;
+    rxBufferHead = 20; // start the pointers one packet in to prevent overwriting
+    rxBufferTail = 20; // in truth, I do not know why this seems to work, but it does
     this->rxBufferSize = rxBufferSize;
 
     txBufferHead = 0;
@@ -123,6 +123,14 @@ void MicroBitUARTService::onDataWritten(const microbit_ble_evt_write_t *params)
         // BIRDBRAIN CHANGE
         //while(writingToBuffer);
         writingToBuffer = true; // BirdBrain Change
+        /* Debugging buffer issues only
+        for(int i = 0; i < 10; i++)
+        {
+            int newHead = (rxBufferHead + 1) % rxBufferSize;
+            rxBuffer[rxBufferHead] = 0x44;
+            rxBufferHead = newHead;
+        }*/
+
         for(int byteIterator = 0; byteIterator <  bytesWritten; byteIterator++)
         {
             int newHead = (rxBufferHead + 1) % rxBufferSize;
@@ -247,8 +255,9 @@ void MicroBitUARTService::resetBuffer()
 {
     if(rxBufferHead == rxBufferTail)
     {
-        rxBufferHead = 0;
-        rxBufferTail = 0;
+        //while(writingToBuffer);
+        rxBufferHead = 20; // start the pointers one packet in to prevent overwriting
+        rxBufferTail = 20;
         memset(rxBuffer, 0, rxBufferSize); // may not be necessary
     }
 }

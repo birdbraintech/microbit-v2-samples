@@ -12,25 +12,17 @@
 
 MicroBit uBit;
 
-// Check for BLE data, execute appropriate commands, and send sensor data
+// Check for BLE data, execute appropriate commands
+// sensor data is sent asynchronously in a different fiber
 void ble_mgmt_loop() {
-    //uint8_t count = 0;
     while(1) { // loop for ever
         bleSerialCommand();   // reads the serial command and then executes on that command
         fiber_sleep(1);
-        // send sensor data approx. every 30 ms
-        /*if(count > 30) {
-            assembleSensorData();
-            count = 0;
-        }
-        count++;
-        */
     }
 }
 
-// Checks if the device type has changed once per second
+// Checks if the device type has changed once per second if not connected
 // If you plug in the micro:bit to a HB or Finch after powering it on, the advertised name changes
-// Only do this if you are not connected to a tablet
 void check_device_loop() {
 
     uint8_t past_device;
@@ -113,7 +105,7 @@ main()
     fiber_sleep(200);
     uBit.io.pin[RESET_PIN].setDigitalValue(0);
     
-    // Wait for the SAMD bootloader
+    // Wait for the SAMD bootloader checker
     fiber_sleep(1850);
 
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
@@ -133,7 +125,7 @@ main()
 
     // Creating the main fiber that listens for BLE messages
     create_fiber(ble_mgmt_loop);
-    // Create a fiber to check if you plugged in or unplugged your micro:bit
+    // Create a fiber to check if you plugged in or unplugged your micro:bit to a Finch or Hummingbird
     create_fiber(check_device_loop);
     release_fiber();
     

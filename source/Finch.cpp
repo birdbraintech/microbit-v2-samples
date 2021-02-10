@@ -36,13 +36,17 @@ void stopFinch()
     memset(stopCommand, 0xFF, FINCH_SPI_LENGTH);
     stopCommand[0] = FINCH_STOPALL;
     spiWrite(stopCommand, FINCH_SPI_LENGTH);
+    // Init the previous Finch LED command array to all 0s
+    memset(prevFinchSetAllLEDs, 0, FINCH_SETALL_LENGTH);
 }
 
 // Sets all Finch LEDs + buzzer in one go
 void setAllFinchLEDs(uint8_t commands[], uint8_t length)
 {
-    bool updateCommand = false;
+    /*bool updateCommand = false;
 
+    // Checking if we've already set the LEDs to the same values, since Android loves to hammer us with this command
+    // Commented out as this caused more problems than it solved
     for(int i = 0; i < FINCH_SETALL_LENGTH; i++)
     {
         if(commands[i] != prevFinchSetAllLEDs[i])
@@ -50,14 +54,6 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
             updateCommand = true;
         }
         prevFinchSetAllLEDs[i] = commands[i];
-    }
-
-    /*if(updateCommand)
-    {
-        for(int i = 0; i < FINCH_SETALL_LENGTH; i++)
-        {
-            //uBit.serial.sendChar(commands[i], ASYNC); 
-        }
     }*/
 
     // Double check that the command contains enough data for us to proceed and that it isn't
@@ -70,8 +66,8 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
         setBuzzer(buzzPeriod, buzzDuration);
 
         // setting the Finch LEDs
-        if(updateCommand)
-            spiWrite(commands, FINCH_SPI_LENGTH);
+        //if(updateCommand)
+        spiWrite(commands, FINCH_SPI_LENGTH);
     }
 }
 
@@ -81,41 +77,7 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
     uint8_t mode;
     uint8_t bytesUsed = 2; // we have always used at least two bytes
     uint8_t print_length = 0; // Length of the message to print
-/*
-    bool updateMotorCommand = false;
-    bool updateScreenCommand = false;
 
-    if(length <= 10)
-    {
-        for(int i = 0; i < length; i++)
-        {
-            if(commands[i] != prevFinchSetMotorsScreen[i])
-            {
-                updateCommand = true;
-            }
-            prevFinchSetMotorsScreen[i] = commands[i];
-        }
-    }
-    else
-    {
-        for(int i = 0; i < 10; i++)
-        {
-            if(commands[i] != prevFinchSetMotorsScreen[i])
-            {
-                updateMotorCommand = true;
-            }
-            prevFinchSetMotorsScreen[i] = commands[i];
-        }
-        for(int i = 10; i < length; i++)
-        {
-            if(commands[i] != prevFinchSetMotorsScreen[i])
-            {
-                updateCommand = true;
-            }
-            prevFinchSetMotorsScreen[i] = commands[i];
-        }        
-    }
-*/
     // Making sure we have enough data and that the data is fresh
     if(length >= 2)
     {
@@ -350,10 +312,6 @@ void moveMotor(uint8_t* currentCommand)
             rightMotorMove = true;
         }
 
-        // pad the packet to be 16 bytes
-        /*for(int i = 10; i < FINCH_SPI_LENGTH; i++)
-            currentCommand[i] = 0x00;
-        */
         spiWrite(currentCommand,FINCH_SPI_LENGTH);
     }
 }
