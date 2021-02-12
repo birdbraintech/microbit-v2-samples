@@ -460,7 +460,7 @@ void MicroBitBLEManager::init( ManagedString deviceName, ManagedString serialNum
     memset(&gap_conn_params, 0, sizeof(gap_conn_params));
     // BIRDBRAIN CHANGE - setting to match V1 values
     gap_conn_params.min_conn_interval = 6; //6; //6; //10; //6; //6;      // 7.5 ms, this is the minimum// was 10 ms
-    gap_conn_params.max_conn_interval = 25; //10; //40; //10; //16;     // 31.25 ms was 12.5 ms was 75 ms and before that 20 ms
+    gap_conn_params.max_conn_interval = 25;//25; //10; //40; //10; //16;     // 31.25 ms was 12.5 ms was 75 ms and before that 20 ms
     gap_conn_params.slave_latency     = 0;
     gap_conn_params.conn_sup_timeout  = 400;    // 4s
     MICROBIT_BLE_ECHK( sd_ble_gap_ppcp_set( &gap_conn_params));

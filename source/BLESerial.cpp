@@ -120,13 +120,15 @@ void bleSerialInit(ManagedString devName)
 {
     bleuart = new MicroBitUARTService(*uBit.ble, 240, 32);  // increasing the buffer size to catch more near simultaneous commands
 
+    //uBit.ble->stopAdvertising();
+
     fiber_sleep(10); //Give the UART service a moment to register
 
     // Configure advertising with the UART service added, and with our prefix added
     uBit.ble->configAdvertising(devName);
     
     // Waiting for the BLE stack to stabilize
-    fiber_sleep(10);
+    fiber_sleep(100);
     
     uBit.ble->setTransmitPower(7); 
     uBit.ble->advertise();
@@ -406,6 +408,7 @@ void assembleSensorData()
            fiber_sleep(1);
            timeOut++;     
         }
+
         processCommand = true; // This will keep us from executing a command while we gather and send sensor data
 
         if(whatAmI == A_FINCH)
@@ -415,6 +418,14 @@ void assembleSensorData()
             memset(sensor_vals, 0, FINCH_SENSOR_SEND_LENGTH);    
             
             spiReadFinch(spi_sensors_only);
+
+            // Catch if our SPI sensor packet got interrupted by inbound BLE messages during read
+            while(spi_sensors_only[2] == 0x2C || spi_sensors_only[2] == 0xFF)
+            {
+                fiber_sleep(1);
+                spiReadFinch(spi_sensors_only);
+            }             
+
             arrangeFinchSensors(spi_sensors_only, sensor_vals);
 
             getAccelerometerValsFinch(sensor_vals);
@@ -490,10 +501,49 @@ void assembleSensorData()
                 getEdgeConnectorVals(sensor_vals);
                 sensor_vals[3] = 0xFF; // no battery level reported
             }
+            
             if(whatAmI == A_HB)
             {
                 // reading Hummingbird sensors + battery level via SPI
+                uint8_t check_vals[V2_SENSOR_SEND_LENGTH];
+                memset(check_vals, 0xFF, V2_SENSOR_SEND_LENGTH);
+
+                // Read the sensors twice, occasionally one sensor value will get corrupted in an SPI transaction
                 spiReadHB(sensor_vals);
+                fiber_sleep(1); // put a delay between the two reads or weird stuff happens
+                spiReadHB(check_vals);
+
+                bool readAgain = false;
+                // check if values are within a small range of each other, otherwise one or the other sensor reading might be off and we should read again
+                for(int i = 0; i < 4; i++)
+                {
+                    if((sensor_vals[i] > (check_vals[i] + 5)) || (sensor_vals[i] < (check_vals[i] -5)))
+                    {
+                        readAgain = true;
+                    }
+                }
+                timeOut = 0;
+
+                // Read again until they're within range of each other, try this 5 times before giving up
+                while(readAgain && timeOut < 5)
+                {
+                    // Read the SPI values again
+                    fiber_sleep(1);
+                    spiReadHB(sensor_vals);
+                    fiber_sleep(1);
+                    spiReadHB(check_vals);
+                    
+                    readAgain = false;
+                    // check if values are within a small range of each other, otherwise one or the other sensor reading might be off
+                    for(int i = 0; i < 4; i++)
+                    {
+                        if((sensor_vals[i] > (check_vals[i] + 5)) || (sensor_vals[i] < (check_vals[i] -5)))
+                        {
+                            readAgain = true;
+                        }
+                    }
+                    timeOut++;
+                }
             }
             getAccelerometerVals(sensor_vals);
             getMagnetometerVals(sensor_vals);
@@ -524,6 +574,13 @@ void assembleSensorData()
                 }
             }
 
+/*            uBit.serial.sendChar(timeOut, ASYNC);
+            for(int i = 0; i < SENSOR_SEND_LENGTH; i++)
+            {
+                uBit.serial.sendChar(sensor_vals[i], ASYNC);
+            }            
+            uBit.serial.sendChar(0xFF, ASYNC);
+*/
             //send the data asynchronously
             if(v2report)
                 bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC); // sends 16 bytes

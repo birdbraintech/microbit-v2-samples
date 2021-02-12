@@ -108,6 +108,9 @@ main()
     // Wait for the SAMD bootloader checker
     fiber_sleep(1850);
 
+    // Figure out what we are called, start flashing our initials
+    getInitials_fancyName();
+
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
     ManagedString bbDevName = whichDevice(); 
 
@@ -117,8 +120,6 @@ main()
     // Start up a UART service and start advertising
     bleSerialInit(bbDevName);     
 
-    // Figure out what we are called, start flashing our initials
-    getInitials_fancyName();
 
     // Setting up an event listener for flashing messages and for running the buzzer
     BBMicroBitInit();     

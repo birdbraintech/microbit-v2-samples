@@ -58,18 +58,13 @@ void spiReadHB(uint8_t (&readBuffer)[V2_SENSOR_SEND_LENGTH])
         spiActive = true;
     
         uBit.io.P16.setDigitalValue(0);
-        NRFX_DELAY_US(SS_WAIT);
-        for(int i = 0; i < HB_SENSOR_LENGTH-1; i++)
-        {
-            readBuffer[i] = spi.write(0xCC);
-            NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
-        }
-        readBuffer[HB_SENSOR_LENGTH-1] = spi.write(0xCC);
-        NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
-        readBuffer[0] = spi.write(0xCC);
-        NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
-        readBuffer[1] = spi.write(0xCC);
-        NRFX_DELAY_US(SS_WAIT);
+
+        // send four nonsense bytes
+        readBuffer[0] = spi.write(0xAA);
+        readBuffer[1] = spi.write(0xBB);
+        readBuffer[2] = spi.write(0xCC);
+        readBuffer[3] = spi.write(0xDD);
+
         uBit.io.P16.setDigitalValue(1);
         spiActive = false;
     }
@@ -91,12 +86,11 @@ void spiReadFinch(uint8_t (&readBuffer)[FINCH_SPI_SENSOR_LENGTH])
         //NRFX_DELAY_US(SS_WAIT);
         readBuffer[0] = spi.write(0xDE);
         //NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
-        for(int i = 1; i < FINCH_SPI_SENSOR_LENGTH-1; i++)
+        for(int i = 1; i < FINCH_SPI_SENSOR_LENGTH; i++)
         {
             readBuffer[i] = spi.write(0xFF);
         //    NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
         }
-        readBuffer[FINCH_SPI_SENSOR_LENGTH-1] = spi.write(0xFF);
         //NRFX_DELAY_US(SS_WAIT);
         uBit.io.P16.setDigitalValue(1);
         spiActive = false;
@@ -134,7 +128,7 @@ ManagedString whichDevice()
             {
                 case MICROBIT_SAMD_ID:
                     devicePrefix="MB";
-			        devicePrefix="MB";
+                    whatAmI = A_MB;
                     break;
                 case FINCH_SAMD_ID:
                     devicePrefix="FN";
@@ -149,11 +143,12 @@ ManagedString whichDevice()
                 // If the value is still junk, call it a standalone micro:bit 
                 default:            
                     devicePrefix="MB";
-			        devicePrefix="MB";
+                    whatAmI = A_MB;
         			break;
             }
             break;
 	}
+    
     return devicePrefix;
 }
 
@@ -185,7 +180,7 @@ uint8_t readFirmwareVersion()
         NRFX_DELAY_MS(1); // wait after reading firmware
 
         spiActive = false;
-
+        
         if(readBuffer[0] == FINCH_SAMD_ID)
             return FINCH_SAMD_ID;
         else if((readBuffer[3] == HUMMINGBIT_SAMD_ID) || (readBuffer[3] == (HUMMINGBIT_SAMD_ID-1)) || (readBuffer[3] == (HUMMINGBIT_SAMD_ID-2)))
