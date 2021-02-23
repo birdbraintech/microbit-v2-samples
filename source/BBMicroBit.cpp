@@ -62,7 +62,7 @@ void mbBuzz(MicroBitEvent)
     buzzerRunning = true;
     // Make a sound if the tone is below 20 KHz and longer than 10 ms
     if(buzzPeriod > 50 && localDuration > 10) {
-        while(elapsed < (localDuration/5) && buzzerRunning)
+        while(elapsed < (localDuration/4) && buzzerRunning)
         {
             // If we've updated the buzzer while it's playing, update to the new values
             if(newBuzz && buzzDuration > 0) {
@@ -82,8 +82,8 @@ void mbBuzz(MicroBitEvent)
                 localDuration = buzzDuration; //resetting the buzz duration
                 newBuzz = false; //making sure we don't update again until a real new value comes in over BLE
             }
-            // Check every 5 milliseconds
-            fiber_sleep(5); 
+            // Check every 4 milliseconds
+            fiber_sleep(4); 
             elapsed++;
         }
         if(whatAmI == A_MB)
