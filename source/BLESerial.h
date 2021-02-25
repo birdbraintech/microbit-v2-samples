@@ -47,6 +47,11 @@
 
 #define MIC_SAMPLES                               8
 
+#define FULL_BATT                                 100                          //All four tail LEDS are green above this
+#define BATT_THRESH1                              55							//Three tail LEDS are green above this
+#define BATT_THRESH2                              40							//Two Tail LEDS are yellow above this
+														//One Tail LED is red below BATT_THRESH2
+
 void bleSerialInit(ManagedString devName);  // Initializes the UART
 void bleSerialCommand(); // Checks what command (setAll, get firmware, etc) is coming over BLE, then acts as necessary
 void assembleSensorData(); // Collects the notification data and sends it to the computer/tablet

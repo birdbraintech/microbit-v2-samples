@@ -521,18 +521,15 @@ void assembleSensorData()
                 // Using the other byte for the sound level
                 sensor_vals[0] = loudness; // calculated in getLoudnessVal
 
-                // Calculating battery level in mV and boiling it down to 4 states
-                uint16_t battery = ((sensor_vals[6] + 320) * 937);
-
-                if(battery < 3373)
+                if(sensor_vals[6] < BATT_THRESH2)
                 {
                     sensor_vals[6] = 0; // red LED
                 }
-                else if(battery < 3514)
+                else if(sensor_vals[6] < BATT_THRESH1)
                 {
                     sensor_vals[6] = 1; // yellow LEDs
                 }
-                else if(battery < 3800)
+                else if(sensor_vals[6] < FULL_BATT)
                 {
                     sensor_vals[6] = 2; // 3 green LEDs
                 }
