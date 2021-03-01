@@ -41,6 +41,7 @@ void spiWrite(uint8_t* writeBuffer, uint8_t length)
         spi.write(writeBuffer[length-1]);
         //NRFX_DELAY_US(SS_WAIT);
         uBit.io.P16.setDigitalValue(1);
+        NRFX_DELAY_US(50); // Ensures we don't hammer the Finch or Hummingbird with SPI packets
         spiActive = false;
     }
 }

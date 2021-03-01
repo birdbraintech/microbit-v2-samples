@@ -70,7 +70,7 @@ MicroBitUARTService::MicroBitUARTService(BLEDevice &_ble, uint8_t rxBufferSize, 
     txBuffer = (uint8_t *)malloc(txBufferSize);
     rxBuffer = (uint8_t *)malloc(rxBufferSize);
 
-    rxBufferHead = 20; // start the pointers one packet in to prevent overwriting
+    rxBufferHead = 20; // start the pointers one 20 byte packet in to prevent overwriting
     rxBufferTail = 20; // in truth, I do not know why this seems to work, but it does
     this->rxBufferSize = rxBufferSize;
 
