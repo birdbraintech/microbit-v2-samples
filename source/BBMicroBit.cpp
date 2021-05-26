@@ -30,12 +30,6 @@ void flashMessage(MicroBitEvent)
     // Checks every 200 ms - this prints the symbol for 400 ms and clears the screen for 200 ms
     while(flashOn && (i < messageLength))
     {
-        if(newFlash)
-        {
-            i = 0;
-            state = 0;
-            newFlash = false;
-        }
         if(state == 0)
         {
             uBit.display.printAsync(messageFlash[i]);
@@ -48,6 +42,15 @@ void flashMessage(MicroBitEvent)
         }
         state++;
         fiber_sleep(200);
+
+        // Check for a new message to flash and reset the loop if that's the case
+        if(newFlash)
+        {
+            i = 0;
+            state = 0;
+            newFlash = false;
+        }
+
     }
     // No longer flashing the message
     flashOn = false;

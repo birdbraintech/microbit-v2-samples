@@ -213,14 +213,14 @@ void bleSerialCommand()
         bleuart->resetBuffer(); // resets the buffer as we have read everything, not doing this seemed to cause issues
         uint8_t commandCount = 0;
 
-       /* for debugging only, to inspect BLE packets
-       uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
+       // for debugging only, to inspect BLE packets
+       /*uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
         for(int i = 0; i < bufferLength; i++)
         {
             uBit.serial.sendChar(ble_read_buff[i], SYNC_SLEEP);
         }
         uBit.serial.sendChar(0xEE, SYNC_SLEEP);
-        uBit.serial.sendChar(0xEE, SYNC_SLEEP); */
+        uBit.serial.sendChar(0xEE, SYNC_SLEEP);*/ 
         while(commandCount < bufferLength)
         {
             sleepCounter = 0; // reset the sleep counter since we have received a command
@@ -263,7 +263,7 @@ void bleSerialCommand()
                     break;
                 // Returns the firmware and hardware versions
                 case SET_FIRMWARE: 
-                case FINCH_SET_FIRMWARE:      
+                case FINCH_SET_FIRMWARE:   
                     returnFirmwareData();
                     commandCount++;
                     break;        
