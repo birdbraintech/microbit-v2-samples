@@ -61,15 +61,21 @@ void check_device_loop() {
                     case MICROBIT_SAMD_ID:
                         devicePrefix="MB";
                         whatAmI = A_MB;
+                        initials_name[3]='M';
+                        initials_name[4]='B';
                         break;
                     case FINCH_SAMD_ID:
                         devicePrefix="FN";
                         whatAmI = A_FINCH;
+                        initials_name[3]='F';
+                        initials_name[4]='N';
                         break;
                     case HUMMINGBIT_SAMD_ID:
                         devicePrefix="BB";
                         whatAmI = A_HB;
                         initHB();
+                        initials_name[3]='B';
+                        initials_name[4]='B';
                         break;
                     default: // only update if you read SPI correctly
                         update = false;

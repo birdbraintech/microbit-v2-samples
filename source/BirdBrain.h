@@ -6,7 +6,7 @@
 
 extern MicroBit uBit;
 extern MicroBitUARTService *bleuart;
-extern char initials_name[3]; // Holds our fancy name initials
+extern char initials_name[10]; // Holds our fancy name initials
 extern uint8_t whatAmI; // Holds whether the device is currently in standalone micro:bit, Finch, or Hummingbird mode 
 extern bool bleConnected; // Holds if connected over BLE
 extern bool notifyOn; // Holds if notifications are on (we are regularly sending sensor packets back)

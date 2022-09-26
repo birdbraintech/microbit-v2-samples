@@ -145,20 +145,60 @@ void sleepTimer()
 void flashInitials()
 {
     uint8_t count = 0;
+    //MicroBitImage flash("255,255,255,255,255\n255,255,255,255,255\n255,255,255,255,255\n255,255,255,255,255\n255,255,255,255,255\n");
+    bool displayOnlyFancy = false;
+    bool displayOnlyBrowser = false;
     while(1)
     {
         if(!bleConnected) {
+            if(uBit.buttonA.isPressed()) {
+                count = 0;
+                uBit.display.clear();
+                fiber_sleep(900);
+                displayOnlyFancy = true;
+                displayOnlyBrowser = false;
+            }
+            
+            if(uBit.buttonB.isPressed()) {
+                count = 3;
+                uBit.display.clear();
+                fiber_sleep(900);
+                displayOnlyFancy = false;
+                displayOnlyBrowser = true;
+            }
             // Print one of three initials
             uBit.display.printAsync(initials_name[count]);
-            fiber_sleep(400);
+            fiber_sleep(500);
             uBit.display.clear();
-            fiber_sleep(200);
+            fiber_sleep(100);
             count++;
             // If you're at 3, spend a longer time with display cleared so it's obvious which initial is first
             if(count ==3)
             {
+                fiber_sleep(300);
+                
+                if(displayOnlyFancy == true)
+                {
+                    count = 0;
+                }
+                else {
+                    uBit.display.printAsync('#');
+                    fiber_sleep(500);
+                    uBit.display.clear();
+                }
                 fiber_sleep(500);
-                count = 0;
+            }
+            // If you're at 10, spend a longer time with display cleared and reset the counter
+            if(count ==10)
+            {                
+                //uBit.display.printAsync(flash);
+                //fiber_sleep(500);
+                uBit.display.clear();
+                fiber_sleep(900);
+                if(displayOnlyBrowser == true)
+                    count = 3;
+                else
+                    count = 0;
             }
         }
         else {

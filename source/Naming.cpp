@@ -4,8 +4,9 @@
 #include "ble_gap.h" // needed to get the mac address
 #include <cstdio>
 
-char initials_name[3] = {'E', 'R', 'R'}; // Holds our fancy name initials
+char initials_name[10] = {'E', 'R', 'R', 'F', 'N', '0', '0', '0', '0', '0'}; // Holds our name initials
 
+char convert_to_ascii(uint8_t input); // convenience function
 
 /************************************************************************/
 // Check if the three letter word matches the rude words and if yes change the word
@@ -68,6 +69,24 @@ void getInitials_fancyName()
 	initials_name[0] = name_first[top8 + mod16];
 	initials_name[1] = name_second[mid6 + mod16];
 	initials_name[2] = name_third[bot6 + mod16];
+
+    ManagedString bbDevName = whichDevice(); 
+
+    initials_name[3] = bbDevName.charAt(0);
+    initials_name[4] = bbDevName.charAt(1);
+
+	initials_name[5] = convert_to_ascii((mac.addr[2]&0x0F));
+	
+	
+	initials_name[6] = (mac.addr[1]&0xF0);
+	initials_name[6] = convert_to_ascii(initials_name[6]>>4);
+		
+	
+	initials_name[7] = convert_to_ascii(mac.addr[1]&0x0F);
+	initials_name[8] = (mac.addr[0]& 0xF0);
+	initials_name[8] = convert_to_ascii(initials_name[8]>>4);
+		
+	initials_name[9] = convert_to_ascii(mac.addr[0]&0x0F);
 		
 	//Check if the word generated could be an English rude words
 	while(rude_word == true)
@@ -102,4 +121,24 @@ void printInitials()
     fiber_sleep(400);
     uBit.display.clear();
     fiber_sleep(800);
+}
+
+/************************************************************************/
+/**@brief 		Function for converting Hex values to ASCII values
+ * @param[in] Input in hex to be converted to ASCII
+ * @return 		character which is an ascii value of the input
+ */
+ /************************************************************************/
+char convert_to_ascii(uint8_t input)
+{
+	char output;
+	if(input <=9)
+	{
+		output = input + 0x30;
+	}
+	else
+	{
+		output = input + 0x37;
+	}
+	return output;
 }
