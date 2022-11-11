@@ -34,7 +34,7 @@ void stopFinch()
     uint8_t stopCommand[FINCH_SPI_LENGTH];
     
     memset(stopCommand, 0xFF, FINCH_SPI_LENGTH);
-    stopCommand[0] = FINCH_STOPALL;
+    stopCommand[0] = FINCH_HATCHLING_STOPALL;
     spiWrite(stopCommand, FINCH_SPI_LENGTH);
     // Init the previous Finch LED command array to all 0s
     memset(prevFinchSetAllLEDs, 0, FINCH_SETALL_LENGTH);
@@ -166,7 +166,7 @@ void turnOffFinch()
     uint8_t turnOffCommand[FINCH_SPI_LENGTH];
     
     memset(turnOffCommand, 0xFF, FINCH_SPI_LENGTH);
-    turnOffCommand[0] = FINCH_POWEROFF_SAMD;
+    turnOffCommand[0] = FINCH_HATCHLING_POWEROFF_SAMD;
 
     spiWrite(turnOffCommand, FINCH_SPI_LENGTH);       
 }

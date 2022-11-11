@@ -70,7 +70,7 @@ void mbBuzz(MicroBitEvent)
             // If we've updated the buzzer while it's playing, update to the new values
             if(newBuzz && buzzDuration > 0) {
                 // easy to convert this into playing from both buzzers if that is desirable on Finch and HB
-                if(whatAmI == A_MB)
+                if(whatAmI == A_MB || whatAmI == A_HL)
                 {
                     uBit.io.speaker.setAnalogValue(512);
                     uBit.io.speaker.setAnalogPeriodUs(buzzPeriod);
@@ -89,7 +89,7 @@ void mbBuzz(MicroBitEvent)
             fiber_sleep(4); 
             elapsed++;
         }
-        if(whatAmI == A_MB)
+        if(whatAmI == A_MB || whatAmI == A_HL)
         {
             uBit.io.speaker.setAnalogValue(0);
         }
@@ -207,49 +207,52 @@ void decodeAndSetPins(uint8_t displayCommands[])
             } 
         }
     }
-    // input mode
-    else if((displayCommands[4] & 0x30) == 0x10)
+    // otherwise only set pins if you're a micro:bit
+    else if(whatAmI == A_MB)
     {
-        // Tells the sensor data function to treat this pin as an analog input and configures it as an analog input
-        pinsInputs[0] = true;
-        uBit.io.P0.getAnalogValue();
-    }
-    // set PWM mode
-    else
-    {
-        pinsInputs[0] = false;
-        pwmVal = 4*displayCommands[5]; 
-        uBit.io.P0.setAnalogValue(pwmVal);        
-    }
+        if((displayCommands[4] & 0x30) == 0x10)
+        {
+            // Tells the sensor data function to treat this pin as an analog input and configures it as an analog input
+            pinsInputs[0] = true;
+            uBit.io.P0.getAnalogValue();
+        }
+        // set PWM mode
+        else
+        {
+            pinsInputs[0] = false;
+            pwmVal = 4*displayCommands[5]; 
+            uBit.io.P0.setAnalogValue(pwmVal);        
+        }
 
-    // Setting pin 1
-    if((displayCommands[4] & 0x0C) == 0x04)
-    {
-        // Tells the sensor data function to treat this pin as an analog input and configures it as an analog input
-        pinsInputs[1] = true;
-        uBit.io.P1.getAnalogValue();
-    }
-    // set PWM mode
-    else
-    {
-        pinsInputs[1] = false;
-        pwmVal = 4*displayCommands[6]; 
-        uBit.io.P1.setAnalogValue(pwmVal);
-    }
+        // Setting pin 1
+        if((displayCommands[4] & 0x0C) == 0x04)
+        {
+            // Tells the sensor data function to treat this pin as an analog input and configures it as an analog input
+            pinsInputs[1] = true;
+            uBit.io.P1.getAnalogValue();
+        }
+        // set PWM mode
+        else
+        {
+            pinsInputs[1] = false;
+            pwmVal = 4*displayCommands[6]; 
+            uBit.io.P1.setAnalogValue(pwmVal);
+        }
 
-    // Setting pin 2
-    if((displayCommands[4] & 0x03) == 0x01)
-    {
-        // Tells the sensor data function to treat this pin as an analog input and configures it as an analog input
-        pinsInputs[2] = true;
-        uBit.io.P2.getAnalogValue();
-    }
-    // set PWM mode
-    else
-    {
-        pinsInputs[2] = false;
-        pwmVal = 4*displayCommands[7]; 
-        uBit.io.P2.setAnalogValue(pwmVal);
+        // Setting pin 2
+        if((displayCommands[4] & 0x03) == 0x01)
+        {
+            // Tells the sensor data function to treat this pin as an analog input and configures it as an analog input
+            pinsInputs[2] = true;
+            uBit.io.P2.getAnalogValue();
+        }
+        // set PWM mode
+        else
+        {
+            pinsInputs[2] = false;
+            pwmVal = 4*displayCommands[7]; 
+            uBit.io.P2.setAnalogValue(pwmVal);
+        }
     }
     
 }
@@ -422,6 +425,85 @@ void getButtonValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH], bool V
             sensor_vals[16] = sensor_vals[16] | 0x02; // set the touch bit - this is read as false 
         }
     }    
+}
+
+// Get and convert the accelerometer values to 8 bit format, and check if the shake bit should be set
+void getAccelerometerValsHatchling(uint8_t (&sensor_vals)[HATCHLING_SENSOR_SEND_LENGTH])
+{
+    // Inverting the sign of X and Y to match how the V1 works
+    sensor_vals[3] = 255-convertAccelVal(uBit.accelerometer.getX());
+    sensor_vals[4] = 255-convertAccelVal(uBit.accelerometer.getY());
+    sensor_vals[5] = convertAccelVal(uBit.accelerometer.getZ());
+
+    // Add the shaken bit to the button/shake bit
+    if(uBit.accelerometer.getGesture() == ACCELEROMETER_EVT_SHAKE)
+        sensor_vals[16] = sensor_vals[6] | 0x01; // set the shake bit
+    else
+        sensor_vals[16] = sensor_vals[6] & 0xFE; // clear the bit
+}
+
+// Get and convert the magnetometer values to a 16 bit format
+void getMagnetometerValsHatchling(uint8_t (&sensor_vals)[HATCHLING_SENSOR_SEND_LENGTH])
+{
+    int16_t convertedVal;
+
+    convertedVal = (int16_t)(convertMagVal(uBit.compass.getX()));
+    convertedVal = -convertedVal/10;  // Converting to v1 readings by inverting the sign
+    // converting to 8 bit range
+    if(convertedVal > 127)
+        convertedVal = 127;
+    else if(convertedVal < -127)
+        convertedVal = -127;
+    sensor_vals[7] = (uint8_t)(convertedVal&0x00FF);
+
+    convertedVal = (int16_t)(convertMagVal(uBit.compass.getY())); 
+    convertedVal = -convertedVal/10;  // Converting to v1 readings by inverting the sign
+    // converting to 8 bit range
+    if(convertedVal > 127)
+        convertedVal = 127;
+    else if(convertedVal < -127)
+        convertedVal = -127;
+    sensor_vals[8] = (uint8_t)(convertedVal&0x00FF);
+    
+    convertedVal = (int16_t)(convertMagVal(uBit.compass.getZ())); 
+    convertedVal = -convertedVal/10;  // Converting to v1 readings by inverting the sign
+    // converting to 8 bit range
+    if(convertedVal > 127)
+        convertedVal = 127;
+    else if(convertedVal < -127)
+        convertedVal = -127;
+    sensor_vals[9] = (uint8_t)(convertedVal&0x00FF);
+}
+
+// Get the state of the buttons
+void getButtonValsHatchling(uint8_t (&sensor_vals)[HATCHLING_SENSOR_SEND_LENGTH])
+{
+    if(uBit.buttonA.isPressed())
+    {
+        sensor_vals[6] = sensor_vals[6] & 0xEF; // clear the button A bit - this is read as true        
+    }
+    else
+    {
+        sensor_vals[6] = sensor_vals[6] | 0x10; // set the button A bit - this is read as false
+    }
+
+    if(uBit.buttonB.isPressed())
+    {
+        sensor_vals[6] = sensor_vals[6] & 0xDF; // clear the button B bit - this is read as true 
+    }
+    else
+    {
+        sensor_vals[6] = sensor_vals[6] | 0x20; // set the button B bit - this is read as false
+    }
+
+    if(uBit.logo.isPressed())
+    {
+        sensor_vals[6] = sensor_vals[6] & 0xFD; // clear the touch bit - this is read as true 
+    }
+    else{
+        sensor_vals[6] = sensor_vals[6] | 0x02; // set the touch bit - this is read as false 
+    }
+    
 }
 
 

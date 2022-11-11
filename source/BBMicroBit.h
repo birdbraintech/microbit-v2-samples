@@ -30,6 +30,15 @@ void getMagnetometerValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH]);
 // Get the state of the buttons
 void getButtonValsFinch(uint8_t (&sensor_vals)[FINCH_SENSOR_SEND_LENGTH], bool V2Notification);
 
+// Get and convert the accelerometer values to 8 bit format, and check if the shake bit should be set
+void getAccelerometerValsHatchling(uint8_t (&sensor_vals)[HATCHLING_SENSOR_SEND_LENGTH]);
+
+// Get and convert the magnetometer values to a 16 bit format
+void getMagnetometerValsHatchling(uint8_t (&sensor_vals)[HATCHLING_SENSOR_SEND_LENGTH]);
+
+// Get the state of the buttons
+void getButtonValsHatchling(uint8_t (&sensor_vals)[HATCHLING_SENSOR_SEND_LENGTH]);
+
 
 // Turns off edge connector, buzzer, LED screen
 void stopMB();

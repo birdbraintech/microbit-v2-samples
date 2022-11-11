@@ -26,10 +26,16 @@
 
 #define FINCH_SETALL_LED			              0xD0
 #define FINCH_SETALL_MOTORS_MLED				  0xD2
-#define FINCH_SET_FIRMWARE                        0xD4
+#define FINCH_HATCHLING_SET_FIRMWARE              0xD4
 #define FINCH_RESET_ENCODERS                      0xD5
-#define FINCH_POWEROFF_SAMD                       0xD6
-#define FINCH_STOPALL                             0xDF
+#define FINCH_HATCHLING_POWEROFF_SAMD             0xD6
+#define FINCH_HATCHLING_STOPALL                   0xDF
+
+#define HATCHLING_SET_ONBOARD_LEDS                0xE0
+#define HATCHLING_SET_PORT_STATES                 0xE1
+#define HATCHLING_SET_GP_PORTS                    0xE2
+#define HATCHLING_SET_EXTERNAL_PXL                0xE3
+
 
 #define BROADCAST                                 'b'
 #define MICRO_IO                                  0x90
@@ -43,6 +49,7 @@
 #define SENSOR_SEND_LENGTH                	      14
 #define V2_SENSOR_SEND_LENGTH             	      16
 #define FINCH_SENSOR_SEND_LENGTH                  20
+#define HATCHLING_SENSOR_SEND_LENGTH              20
 #define BLE__MAX_PACKET_LENGTH                    20 
 
 #define MIC_SAMPLES                               8

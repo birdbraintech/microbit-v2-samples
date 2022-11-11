@@ -15,15 +15,18 @@
 #define MICROBIT_SAMD_ID                                0
 #define FINCH_SAMD_ID									44
 #define HUMMINGBIT_SAMD_ID								3
+#define HATCHLING_SAMD_ID                               92
 #define UNIDENTIFIED_DEV                                25
 
 #define HB_SENSOR_LENGTH                                4
 #define FINCH_SPI_SENSOR_LENGTH                         16
+#define HATCHLING_SPI_SENSOR_LENGTH                     19
 
 void spiInit();
 void spiWrite(uint8_t* writeBuffer, uint8_t length);
 void spiReadHB(uint8_t (&readBuffer)[V2_SENSOR_SEND_LENGTH]);
 void spiReadFinch(uint8_t (&readBuffer)[FINCH_SPI_SENSOR_LENGTH]);
+void spiReadHatchling(uint8_t (&readBuffer)[HATCHLING_SPI_SENSOR_LENGTH]);
 ManagedString whichDevice();
 uint8_t readFirmwareVersion();
 

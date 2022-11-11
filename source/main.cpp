@@ -18,6 +18,7 @@ void ble_mgmt_loop() {
     while(1) { // loop for ever
         bleSerialCommand();   // reads the serial command and then executes on that command
         fiber_sleep(1);
+        printFirmwareResponse();
     }
 }
 
@@ -39,6 +40,9 @@ void check_device_loop() {
             break;
         case A_HB:
             current_device = HUMMINGBIT_SAMD_ID;
+            break;
+        case A_HL:
+            current_device = HATCHLING_SAMD_ID;
             break;
         case A_FINCH:
             current_device = FINCH_SAMD_ID;
@@ -77,6 +81,13 @@ void check_device_loop() {
                         initials_name[3]='B';
                         initials_name[4]='B';
                         break;
+                    case HATCHLING_SAMD_ID:
+                        devicePrefix="HL";
+                        whatAmI = A_HB;
+                        initHB();
+                        initials_name[3]='H';
+                        initials_name[4]='L';
+                        break;    
                     default: // only update if you read SPI correctly
                         update = false;
                         break;
@@ -117,7 +128,7 @@ main()
     // Figure out what we are called, start flashing our initials
     getInitials_fancyName();
 
-    // Get our name prefix - BB, FN, or MB - depending on what we are attached to
+    // Get our name prefix - BB, FN, HL, or MB - depending on what we are attached to
     ManagedString bbDevName = whichDevice(); 
 
     // Wait for the BLE stack to stabilize before registering the UART service

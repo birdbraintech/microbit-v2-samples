@@ -32,6 +32,7 @@ extern uint16_t sleepCounter; // Used to check if we should turn off the Finch d
 #define A_MB           0
 #define A_HB           1
 #define A_FINCH        2
+#define A_HL           3 // Hatchling
 
 // Setting up BB specific events
 #define BB_ID            MICROBIT_ID_NOTIFY+1 // last defined eventId is MICROBIT_ID_NOTIFY==1023 in MicroBitComponent.h 

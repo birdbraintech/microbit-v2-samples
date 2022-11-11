@@ -3,6 +3,7 @@
 #include "BLESerial.h"
 #include "Hummingbird.h"
 #include "Finch.h"
+#include "Hatchling.h"
 #include "SpiControl.h"
 
 static NRF52ADCChannel *mic = NULL; // Used to increase the gain of the mic ADC channel
@@ -254,13 +255,13 @@ void bleSerialCommand()
         uint8_t commandCount = 0;
 
        // for debugging only, to inspect BLE packets
-       /*uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
+       /* uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
         for(int i = 0; i < bufferLength; i++)
         {
             uBit.serial.sendChar(ble_read_buff[i], SYNC_SLEEP);
         }
         uBit.serial.sendChar(0xEE, SYNC_SLEEP);
-        uBit.serial.sendChar(0xEE, SYNC_SLEEP);*/ 
+        uBit.serial.sendChar(0xEE, SYNC_SLEEP); */
         while(commandCount < bufferLength)
         {
             sleepCounter = 0; // reset the sleep counter since we have received a command
@@ -269,7 +270,7 @@ void bleSerialCommand()
             switch(ble_read_buff[commandCount])
             {
                 case SET_LEDARRAY:
-                    if(whatAmI == A_MB || whatAmI == A_HB) {
+                    if(whatAmI == A_MB || whatAmI == A_HB || whatAmI == A_HL) {
                         // If our command is to print a symbol, then we're using 6 bytes
                         if(ble_read_buff[commandCount+1] == SYMBOL)
                         {
@@ -303,7 +304,7 @@ void bleSerialCommand()
                     break;
                 // Returns the firmware and hardware versions
                 case SET_FIRMWARE: 
-                case FINCH_SET_FIRMWARE:   
+                case FINCH_HATCHLING_SET_FIRMWARE:   
                     returnFirmwareData();
                     commandCount++;
                     break;        
@@ -350,7 +351,7 @@ void bleSerialCommand()
                     }
                     break;
                 case MICRO_IO:
-                    if(whatAmI == A_MB) {
+                    if(whatAmI == A_MB || whatAmI == A_HL) {
                         bytesUsed = 8; // This command always uses 8 bytes
                         uint8_t packetCommands[bytesUsed];
                         if(bufferLength >= commandCount+bytesUsed)
@@ -482,10 +483,13 @@ void bleSerialCommand()
                     }
                     break;    
                 // Finch Stop command
-                case FINCH_STOPALL:
+                case FINCH_HATCHLING_STOPALL:
                     stopMB(); // turn off LED array and buzzer
                     if(whatAmI == A_FINCH) {
                         stopFinch(); // Stop the Finch moving and LEDs
+                    }
+                    if(whatAmI == A_HL) {
+                        stopHatchling(); // Stop the Hatchling servos moving / LEDs
                     }
                     bytesUsed = 1; // 0xDF
                     commandCount++;
@@ -497,6 +501,58 @@ void bleSerialCommand()
                     bytesUsed = 1; // 0xD5
                     commandCount++;
                     break;
+                // Sets the Hatchling Onboard LEDs
+                case HATCHLING_SET_ONBOARD_LEDS:
+                    if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
+                    {
+                        bytesUsed = HATCHLING_SETALL_LENGTH; // 20 bytes
+                        uint8_t packetCommands[bytesUsed];
+                        for(int i = 0; i < bytesUsed; i++)
+                        {
+                            packetCommands[i] = ble_read_buff[i+commandCount];
+                        }           
+                                        
+                        setOnboardHatchlingLEDs(packetCommands, bytesUsed); // sets all onboard LEDs          
+                        commandCount += bytesUsed;
+                    }
+                    else {
+                        commandCount++;
+                    }
+                    break;
+                // Sets the Hatchling GP Ports
+                case HATCHLING_SET_GP_PORTS:
+                    if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
+                    {
+                        bytesUsed = HATCHLING_SETALL_LENGTH; // 20 bytes
+                        uint8_t packetCommands[bytesUsed];
+                        for(int i = 0; i < bytesUsed; i++)
+                        {
+                            packetCommands[i] = ble_read_buff[i+commandCount];
+                        }                             
+                        setAllHatchlingPorts(packetCommands, bytesUsed); // sets all onboard LEDs          
+                        commandCount += bytesUsed;
+                    }
+                    else {
+                        commandCount++;
+                    }
+                    break;    
+                // Sets an external Neopixel strip on a Hatchling GP Port
+                case HATCHLING_SET_EXTERNAL_PXL:
+                    if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
+                    {
+                        bytesUsed = HATCHLING_SETALL_LENGTH; // 20 bytes
+                        uint8_t packetCommands[bytesUsed];
+                        for(int i = 0; i < bytesUsed; i++)
+                        {
+                            packetCommands[i] = ble_read_buff[i+commandCount];
+                        }                             
+                        setHatchlingExternalNeopixelStrip(packetCommands, bytesUsed); // sets all onboard LEDs          
+                        commandCount += bytesUsed;
+                    }
+                    else {
+                        commandCount++;
+                    }
+                    break;    
                 default:
                     // consume 1 byte
                     commandCount++;
@@ -597,6 +653,73 @@ void assembleSensorData()
                 // Combining temperature and battery level into 1 byte    
                 sensor_vals[6] = ((uint8_t)(temperature)<<2) | sensor_vals[6];
             }
+
+            bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC);
+        }
+        else if(whatAmI == A_HL)
+        {
+            uint8_t sensor_vals[HATCHLING_SENSOR_SEND_LENGTH];
+            uint8_t spi_sensors_only[HATCHLING_SPI_SENSOR_LENGTH];
+            memset(sensor_vals, 0, HATCHLING_SENSOR_SEND_LENGTH);    
+            
+            spiReadHatchling(spi_sensors_only);
+
+            // Catch if our SPI sensor packet got interrupted by inbound BLE messages during read
+            while(spi_sensors_only[2] == 0x5C || spi_sensors_only[2] == 0xFF)
+            {
+                fiber_sleep(1);
+                spiReadHatchling(spi_sensors_only);
+            }             
+
+            arrangeHatchlingSensors(spi_sensors_only, sensor_vals);
+
+            getAccelerometerValsHatchling(sensor_vals);
+            getMagnetometerValsHatchling(sensor_vals);
+            getButtonValsHatchling(sensor_vals); 
+
+            // Probably not necessary as we get feedback from the LED screen            
+            if(calibrationAttempt)
+            {
+                if(calibrationSuccess)
+                {
+                    sensor_vals[6] = sensor_vals[6] | 0x04;
+                }
+                else
+                {
+                    sensor_vals[6] = sensor_vals[6] | 0x08;
+                }
+            }
+            
+            // Using the other byte for the sound level
+            sensor_vals[0] = loudness; // calculated in getLoudnessVal
+            sensor_vals[1] = uBit.display.readLightLevel(); // Gets the ambient light level falling on the micro:bit display
+
+            // Stuff battery report into 2 bits - this will need to be updated as the thresholds are wrong
+            if(sensor_vals[2] < BATT_THRESH2)
+            {
+                sensor_vals[2] = 0; // red LED
+            }
+            else if(sensor_vals[2] < BATT_THRESH1)
+            {
+                sensor_vals[2] = 1; // yellow LEDs
+            }
+            else if(sensor_vals[2] < FULL_BATT)
+            {
+                sensor_vals[2] = 2; // 3 green LEDs
+            }
+            else
+            {
+                sensor_vals[2] = 3; // 4 green LEDs
+            }
+
+            // Now adding the temperature reading into the battery level byte
+            int16_t temperature = uBit.thermometer.getTemperature();
+            if(temperature < 0)
+                temperature = 0;
+            else if(temperature > 63)
+                temperature = 63;
+                // Combining temperature and battery level into 1 byte    
+            sensor_vals[2] = ((uint8_t)(temperature)<<2) | sensor_vals[2];
 
             bleuart->send(sensor_vals, sizeof(sensor_vals), ASYNC);
         }
@@ -767,6 +890,10 @@ void returnFirmwareData()
     {
         return_buff[2] = 44;
     } 
+    else if(whatAmI == A_HL)
+    {
+        return_buff[2] = 92;
+    } 
     else
     {
         return_buff[2] = 0;
@@ -780,7 +907,7 @@ void returnFirmwareData()
 void playConnectSound()
 {
     // Plays the BirdBrain connect song, over the built-in speaker if a micro:bit, or over Finch/HB buzzer if not 
-    if(whatAmI == A_MB)
+    if(whatAmI == A_MB || whatAmI == A_HL)
     {
         uBit.io.speaker.setAnalogValue(512);
         uBit.io.speaker.setAnalogPeriodUs(3039);
@@ -812,7 +939,7 @@ void playConnectSound()
 void playDisconnectSound()
 {
     // Plays the BirdBrain disconnect song
-    if(whatAmI == A_MB)
+    if(whatAmI == A_MB || whatAmI == A_HL)
     {
         uBit.io.speaker.setAnalogValue(512);
         uBit.io.speaker.setAnalogPeriodUs(1702);
