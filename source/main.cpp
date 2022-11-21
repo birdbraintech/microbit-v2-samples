@@ -6,6 +6,7 @@
 #include "Naming.h"
 #include "Hummingbird.h"
 #include "Finch.h"
+#include "Hatchling.h"
 
 #include <cstdio>
 
@@ -140,6 +141,12 @@ main()
 
     // Setting up an event listener for flashing messages and for running the buzzer
     BBMicroBitInit();     
+
+    // Displaying the LED code based on the mac address
+    if(whatAmI==A_HL)
+    {
+        showLEDCode();
+    }
 
     // Creating the main fiber that listens for BLE messages
     create_fiber(ble_mgmt_loop);

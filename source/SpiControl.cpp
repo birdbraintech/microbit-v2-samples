@@ -243,7 +243,7 @@ void printFirmwareResponse()
         
         uBit.io.P16.setDigitalValue(0);
         NRFX_DELAY_US(SS_WAIT);
-        uint8_t commands[8] = {0xD0, 0xD1, 0xD2, 0xD3, 0xDE, 0xDF, 0x8C, 0xD6};
+        uint8_t commands[8] = {0xE0, 0xE1, 0xE2, 0xE3, 0xDE, 0xDF, 0x8C, 0xD6};
         uint8_t readBuffer[19];
         uint8_t writeBuffer[19] = {0xD0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0x0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0, 0xFF, 0x88, 0, 0xFF};
         readBuffer[0] = spi.write(commands[switchcmd]); // Special command to read firmware/hardware version for both Finch and HB
@@ -289,4 +289,37 @@ void printFirmwareResponse()
         //bleConnected = false;
         
         }
+
+    if(uBit.buttonB.isPressed())
+    {
+        
+        uBit.io.P16.setDigitalValue(0);
+        NRFX_DELAY_US(SS_WAIT);
+        uint8_t readBuffer[19];
+        uint8_t writeBuffer[19] = {0xDE, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0x0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0, 0xFF, 0x88, 0, 0xFF};
+        for(int i = 0; i < 19; i++)
+        {
+            readBuffer[i] = spi.write(writeBuffer[i]);
+            NRFX_DELAY_US(10);//WAIT_BETWEEN_BYTES);
+        }
+        /*if(rotate == 1)
+            readBuffer[18] = spi.write(writeBuffer[18]);
+        else
+            readBuffer[18] = spi.write(writeBuffer[rotate]);*/
+
+        NRFX_DELAY_US(SS_WAIT);
+        uBit.io.P16.setDigitalValue(1);
+        NRFX_DELAY_MS(1); // wait after reading firmware
+
+        for(int i =14; i < 18; i++)
+        {
+            uBit.serial.sendChar(readBuffer[i]);
+        }
+        switchcmd = 0;
+        uBit.serial.sendChar(uBit.io.P2.getAnalogValue()>>2);
+        uBit.serial.sendChar(uBit.io.P1.getAnalogValue()>>2);
+        uBit.serial.sendChar(uBit.io.P0.getAnalogValue()>>2);
+
+        fiber_sleep(500);
+    }       
 }

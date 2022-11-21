@@ -95,6 +95,10 @@ void onConnected(MicroBitEvent)
 {
     bleConnected = true;
     playConnectSound();
+    if(whatAmI == A_HL)
+    {
+        displayConnectedLEDs();
+    }
 }
 
 void onDisconnected(MicroBitEvent)
@@ -111,6 +115,11 @@ void onDisconnected(MicroBitEvent)
     if(whatAmI == A_HB)
     {
         stopHB();
+    }
+    if(whatAmI == A_HL)
+    {
+        stopHatchling();
+        showLEDCode();
     }
     // Turn off the microphone
     if(v2report)
