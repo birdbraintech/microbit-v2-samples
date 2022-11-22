@@ -267,6 +267,7 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
             NRFX_DELAY_US(25); //Need a delay here or else the SPI seems to fail
         }
         setHatchlingPortStates(commands, GP_PORT_TOTAL+1);
+        //NRFX_DELAY_US(250); 
         HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
        /* for(i = 0; i < 19; i++)
             uBit.serial.sendChar(HatchlingOnBoardLEDs[i]);*/

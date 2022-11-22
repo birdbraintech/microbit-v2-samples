@@ -264,13 +264,13 @@ void bleSerialCommand()
         uint8_t commandCount = 0;
 
        // for debugging only, to inspect BLE packets
-       /* uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
+        uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
         for(int i = 0; i < bufferLength; i++)
         {
             uBit.serial.sendChar(ble_read_buff[i], SYNC_SLEEP);
         }
         uBit.serial.sendChar(0xEE, SYNC_SLEEP);
-        uBit.serial.sendChar(0xEE, SYNC_SLEEP); */
+        uBit.serial.sendChar(0xEE, SYNC_SLEEP); 
         while(commandCount < bufferLength)
         {
             sleepCounter = 0; // reset the sleep counter since we have received a command
@@ -514,7 +514,7 @@ void bleSerialCommand()
                 case HATCHLING_SET_ONBOARD_LEDS:
                     if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
                     {
-                        bytesUsed = HATCHLING_SETALL_LENGTH; // 20 bytes
+                        bytesUsed = HATCHLING_SETALL_LENGTH; // 19 bytes
                         uint8_t packetCommands[bytesUsed];
                         for(int i = 0; i < bytesUsed; i++)
                         {
@@ -532,7 +532,7 @@ void bleSerialCommand()
                 case HATCHLING_SET_GP_PORTS:
                     if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
                     {
-                        bytesUsed = HATCHLING_SETALL_LENGTH; // 20 bytes
+                        bytesUsed = HATCHLING_SETALL_LENGTH; // 19 bytes
                         uint8_t packetCommands[bytesUsed];
                         for(int i = 0; i < bytesUsed; i++)
                         {
@@ -549,7 +549,7 @@ void bleSerialCommand()
                 case HATCHLING_SET_EXTERNAL_PXL:
                     if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
                     {
-                        bytesUsed = HATCHLING_SETALL_LENGTH; // 20 bytes
+                        bytesUsed = HATCHLING_NEOPXL_SET_LENGTH; // 14 bytes
                         uint8_t packetCommands[bytesUsed];
                         for(int i = 0; i < bytesUsed; i++)
                         {
