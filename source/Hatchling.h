@@ -7,8 +7,13 @@
 #define TOTAL_POSSIBLE_ACCESSORIES 26
 #define GP_PORT_TOTAL 6
 #define HATCHLING_ONBOARD_LED_CMD_LENGTH  GP_PORT_TOTAL*3+1
+#define MAX_BRIGHTNESS 0x40 // Defines the maximum brightness of onboard LEDs
 
 static const uint8_t id_values[TOTAL_POSSIBLE_ACCESSORIES] = {0, 254, 243, 233, 224, 214, 204, 195, 183, 171, 160, 149, 139, 127, 115, 105, 95, 86, 77, 68, 60, 51, 42, 34, 26, 13};
+
+// Arrays for some pre-set colors (in order: red, orange, yellow, green, teal, blue, purple, white)
+static const uint8_t ledcolors[8][3] = {{MAX_BRIGHTNESS, 0, 0}, {MAX_BRIGHTNESS, MAX_BRIGHTNESS/3, 0}, {MAX_BRIGHTNESS, MAX_BRIGHTNESS, 0}, {0, MAX_BRIGHTNESS, 0},
+                                        {0, MAX_BRIGHTNESS, MAX_BRIGHTNESS}, {0, 0, MAX_BRIGHTNESS}, {MAX_BRIGHTNESS, 0, MAX_BRIGHTNESS}, {MAX_BRIGHTNESS, MAX_BRIGHTNESS, MAX_BRIGHTNESS}};
 
 // Initializes the Hatchling, mostly setting the edge connector pins as we want
 void initHatchling();

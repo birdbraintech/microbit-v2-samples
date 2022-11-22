@@ -550,7 +550,7 @@ void stopMB()
     buzzerRunning = false; // Stop the buzzer
     buzzPeriod = 0;
     buzzDuration = 0;
-    if(whatAmI == A_MB)
+    if(whatAmI == A_MB || whatAmI == A_HL)
     {
         uBit.io.speaker.setAnalogValue(0); 
     }
@@ -559,7 +559,7 @@ void stopMB()
     }
     flashOn = false; // Turn off any messages that are flashing
     uBit.display.clear(); // Clear the display
-    if(whatAmI == A_MB) {
+    if(whatAmI == A_MB || whatAmI == A_HL) {
     // Set the edge connector inputs to analog inputs
         uBit.io.P0.getAnalogValue();
         uBit.io.P1.getAnalogValue();
