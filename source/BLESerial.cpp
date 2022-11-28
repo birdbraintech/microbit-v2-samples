@@ -264,13 +264,13 @@ void bleSerialCommand()
         uint8_t commandCount = 0;
 
        // for debugging only, to inspect BLE packets
-        uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
+        /*uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
         for(int i = 0; i < bufferLength; i++)
         {
             uBit.serial.sendChar(ble_read_buff[i], SYNC_SLEEP);
         }
         uBit.serial.sendChar(0xEE, SYNC_SLEEP);
-        uBit.serial.sendChar(0xEE, SYNC_SLEEP); 
+        uBit.serial.sendChar(0xEE, SYNC_SLEEP); */
         while(commandCount < bufferLength)
         {
             sleepCounter = 0; // reset the sleep counter since we have received a command
@@ -521,7 +521,7 @@ void bleSerialCommand()
                             packetCommands[i] = ble_read_buff[i+commandCount];
                         }           
                                         
-                        setOnboardHatchlingLEDs(packetCommands, bytesUsed); // sets all onboard LEDs          
+                        setOnboardHatchlingLEDs(packetCommands, HATCHLING_SPI_LENGTH); // sets all onboard LEDs          
                         commandCount += bytesUsed;
                     }
                     else {
@@ -538,7 +538,7 @@ void bleSerialCommand()
                         {
                             packetCommands[i] = ble_read_buff[i+commandCount];
                         }                             
-                        setAllHatchlingPorts(packetCommands, bytesUsed); // sets all onboard LEDs          
+                        setAllHatchlingPorts(packetCommands, HATCHLING_SPI_LENGTH); // sets all onboard LEDs          
                         commandCount += bytesUsed;
                     }
                     else {
@@ -547,15 +547,16 @@ void bleSerialCommand()
                     break;    
                 // Sets an external Neopixel strip on a Hatchling GP Port
                 case HATCHLING_SET_EXTERNAL_PXL:
-                    if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
+                    if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_NEOPXL_SET_LENGTH))
                     {
-                        bytesUsed = HATCHLING_NEOPXL_SET_LENGTH; // 14 bytes
-                        uint8_t packetCommands[bytesUsed];
+                        bytesUsed = HATCHLING_NEOPXL_SET_LENGTH; // 14 bytes of the BLE buffer are used
+                        uint8_t packetCommands[HATCHLING_SPI_LENGTH]; // 19 byte array since that's our common SPI length
+                        memset(packetCommands, 0, HATCHLING_SPI_LENGTH);
                         for(int i = 0; i < bytesUsed; i++)
                         {
                             packetCommands[i] = ble_read_buff[i+commandCount];
                         }                             
-                        setHatchlingExternalNeopixelStrip(packetCommands, bytesUsed); // sets all onboard LEDs          
+                        setHatchlingExternalNeopixelStrip(packetCommands, HATCHLING_SPI_LENGTH); // sets all onboard LEDs          
                         commandCount += bytesUsed;
                     }
                     else {

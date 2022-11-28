@@ -22,8 +22,7 @@ void initHatchling()
     //MicroBitPin P2(MICROBIT_ID_IO_P2, MICROBIT_PIN_P2, PIN_CAPABILITY_BOTH); 
     stopHatchling();
     // Init the previous Hatchling LED command array
-    memset(HatchlingOnBoardLEDs, 0x06, HATCHLING_ONBOARD_LED_CMD_LENGTH);
-    HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
+    showLEDCode();
 }
 
 // Sends the stop command to the Hatchling
@@ -114,9 +113,14 @@ void setAllHatchlingPorts(uint8_t commands[], uint8_t length)
 void setHatchlingPortStates(uint8_t commands[], uint8_t length)
 {
     // Making sure we have enough data and that the data is fresh
-    if(length >= GP_PORT_TOTAL+1)
+    if(length >= HATCHLING_SPI_LENGTH)
     {
-        spiWrite(commands, GP_PORT_TOTAL+1);
+     /* Debugging only
+        for(uint8_t i = 0; i < HATCHLING_SPI_LENGTH; i++)
+        {
+            uBit.serial.sendChar(commands[i]);
+        }*/
+        spiWrite(commands, HATCHLING_SPI_LENGTH);
     }
 }
 
@@ -124,7 +128,7 @@ void setHatchlingPortStates(uint8_t commands[], uint8_t length)
 void setHatchlingExternalNeopixelStrip(uint8_t commands[], uint8_t length)
 {
     // Making sure we have enough data and that the data is fresh
-    if(length >= HATCHLING_SETALL_LENGTH)
+    if(length >= HATCHLING_SPI_LENGTH)
     {
         spiWrite(commands, HATCHLING_SPI_LENGTH);
     }
@@ -172,7 +176,7 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
         else {
             for(j = 2; j < TOTAL_POSSIBLE_ACCESSORIES; j++)
             {
-                if((Filtered_ID_Vals[i-14] < (id_values[j] + 4)) && (Filtered_ID_Vals[i-14] > (id_values[j] -4)))
+                if((Filtered_ID_Vals[i-14] < (id_values[j] + 5)) && (Filtered_ID_Vals[i-14] > (id_values[j] -5)))
                 {
                     GP_ID_vals_new[i-14] = j;
                     break; // break out of inner loop only
@@ -199,7 +203,7 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
         else { 
             for(j = 2; j < TOTAL_POSSIBLE_ACCESSORIES; j++)
             {
-                if((Filtered_ID_Vals[i] < (id_values[j] + 4)) && (Filtered_ID_Vals[i] > (id_values[j] -4)))
+                if((Filtered_ID_Vals[i] < (id_values[j] + 5)) && (Filtered_ID_Vals[i] > (id_values[j] -5)))
                 {
                     GP_ID_vals_new[i] = j;
                     break; 
@@ -214,26 +218,6 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
         if(GP_ID_vals_new[i]!=GP_ID_vals[i])
         {
             stabilizeCounter = 0;
-            
-        //    uBit.serial.sendChar(GP_ID_vals_new[i]);
-        //    uBit.serial.sendChar(i);
-        //    uBit.serial.sendChar(Filtered_ID_Vals[i]);
-       /*     if(GP_ID_vals_new[i] == 0 || GP_ID_vals_new[i] == 31) {
-                HatchlingOnBoardLEDs[i*3+1] = 0x06;
-                HatchlingOnBoardLEDs[i*3+2] = 0x06;
-                HatchlingOnBoardLEDs[i*3+3] = 0x06;
-            }
-            else if(GP_ID_vals_new[i] < 6) {
-                HatchlingOnBoardLEDs[i*3+1] = 0x40;
-                HatchlingOnBoardLEDs[i*3+2] = 0x00;
-                HatchlingOnBoardLEDs[i*3+3] = 0x40;
-            }
-            else {
-                HatchlingOnBoardLEDs[i*3+1] = 0x80;
-                HatchlingOnBoardLEDs[i*3+2] = 0x40;
-                HatchlingOnBoardLEDs[i*3+3] = 0x00;
-            }*/
-
         }
         GP_ID_vals[i] = GP_ID_vals_new[i];
     }
@@ -247,7 +231,9 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
     {   
         stabilizeCounter++;
         
-        uint8_t commands[GP_PORT_TOTAL+1];
+        uint8_t commands[HATCHLING_SPI_LENGTH];
+        
+        memset(commands, 0, HATCHLING_SPI_LENGTH);
         commands[0] = HATCHLING_SET_PORT_STATES;
         for(i=0; i < GP_PORT_TOTAL; i++)
         {
@@ -266,11 +252,9 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
             }
             NRFX_DELAY_US(25); //Need a delay here or else the SPI seems to fail
         }
-        setHatchlingPortStates(commands, GP_PORT_TOTAL+1);
+        setHatchlingPortStates(commands, HATCHLING_SPI_LENGTH);
         //NRFX_DELAY_US(250); 
         HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
-       /* for(i = 0; i < 19; i++)
-            uBit.serial.sendChar(HatchlingOnBoardLEDs[i]);*/
         setOnboardHatchlingLEDs(HatchlingOnBoardLEDs, HATCHLING_SPI_LENGTH);
     }
     

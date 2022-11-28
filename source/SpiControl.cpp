@@ -4,6 +4,7 @@
 #include "Hummingbird.h"
 #include "Finch.h"
 #include "BLESerial.h"
+#include "Hatchling.h"
 
 SPI spi(MOSI, MISO, SCK);
 uint8_t whatAmI = 0;
@@ -155,6 +156,7 @@ ManagedString whichDevice()
         case HATCHLING_SAMD_ID:
             devicePrefix="HL";
             whatAmI = A_HL;
+            initHatchling();
             break;        
         // If it was none of the above, including not 0, try one more time to get a value
 		default:
@@ -178,6 +180,7 @@ ManagedString whichDevice()
                 case HATCHLING_SAMD_ID:
                     devicePrefix="HL";
                     whatAmI = A_HL;
+                    initHatchling();
                     break;    
                 // If the value is still junk, call it a standalone micro:bit 
                 default:            
@@ -296,7 +299,7 @@ void printFirmwareResponse()
         uBit.io.P16.setDigitalValue(0);
         NRFX_DELAY_US(SS_WAIT);
         uint8_t readBuffer[19];
-        uint8_t writeBuffer[19] = {0xDE, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0x0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0, 0xFF, 0x88, 0, 0xFF};
+        uint8_t writeBuffer[19] = {0xE3, 0, 3, 1, 255, 0, 255, 0, 255, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0};
         for(int i = 0; i < 19; i++)
         {
             readBuffer[i] = spi.write(writeBuffer[i]);

@@ -84,8 +84,8 @@ void check_device_loop() {
                         break;
                     case HATCHLING_SAMD_ID:
                         devicePrefix="HL";
-                        whatAmI = A_HB;
-                        initHB();
+                        whatAmI = A_HL;
+                        initHatchling();
                         initials_name[3]='H';
                         initials_name[4]='L';
                         break;    
@@ -141,12 +141,6 @@ main()
 
     // Setting up an event listener for flashing messages and for running the buzzer
     BBMicroBitInit();     
-
-    // Displaying the LED code based on the mac address
-    if(whatAmI==A_HL)
-    {
-        showLEDCode();
-    }
 
     // Creating the main fiber that listens for BLE messages
     create_fiber(ble_mgmt_loop);
