@@ -55,7 +55,7 @@ void send_ble_data()
         {
             loopCount = 0;
             if(v2report) {
-                getLoudnessVal();
+               getLoudnessVal();
             }
             assembleSensorData(); // assembles and sends a sensor packet
             // Used for testing the actual time between sensor packets
@@ -95,10 +95,10 @@ void onConnected(MicroBitEvent)
 {
     bleConnected = true;
     playConnectSound();
-    if(whatAmI == A_HL)
+    /*if(whatAmI == A_HL)
     {
         displayConnectedLEDs();
-    }
+    }*/
 }
 
 void onDisconnected(MicroBitEvent)
@@ -680,9 +680,9 @@ void assembleSensorData()
                 fiber_sleep(1);
                 spiReadHatchling(spi_sensors_only);
             }             
-
+            
             arrangeHatchlingSensors(spi_sensors_only, sensor_vals);
-
+            
             getAccelerometerValsHatchling(sensor_vals);
             getMagnetometerValsHatchling(sensor_vals);
             getButtonValsHatchling(sensor_vals); 

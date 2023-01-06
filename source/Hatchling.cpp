@@ -13,13 +13,14 @@ uint8_t GP_ID_vals[GP_PORT_TOTAL] = {31, 31, 31, 31, 31, 31};
 uint16_t Filtered_ID_Vals[GP_PORT_TOTAL] = {0, 0, 0, 0, 0, 0};
 uint8_t stabilizeCounter = 0;
 
+// Setting these pins to analog inputs so we can read the ID values
+MicroBitPin P0(MICROBIT_ID_IO_P0, MICROBIT_PIN_P0, PIN_CAPABILITY_ANALOG);
+MicroBitPin P1(MICROBIT_ID_IO_P1, MICROBIT_PIN_P1, PIN_CAPABILITY_ANALOG);
+MicroBitPin P2(MICROBIT_ID_IO_P2, MICROBIT_PIN_P2, PIN_CAPABILITY_ANALOG);
+
 // Initializes the Hatchling, mostly setting the edge connector pins as we want
 void initHatchling()
-{
-    // Setting these pins to analog inputs so we can read the ID values
-    //MicroBitPin P0(MICROBIT_ID_IO_P0, MICROBIT_PIN_P0, PIN_CAPABILITY_BOTH); 
-    //MicroBitPin P1(MICROBIT_ID_IO_P1, MICROBIT_PIN_P1, PIN_CAPABILITY_BOTH); 
-    //MicroBitPin P2(MICROBIT_ID_IO_P2, MICROBIT_PIN_P2, PIN_CAPABILITY_BOTH); 
+{ 
     stopHatchling();
     // Init the previous Hatchling LED command array
     showLEDCode();
@@ -56,7 +57,6 @@ void setOnboardHatchlingLEDs(uint8_t commands[], uint8_t length)
 void displayConnectedLEDs()
 {
     // Right now just shows all white, update to make it display what is plugged in as well
-
     memset(HatchlingOnBoardLEDs, 0x06, HATCHLING_ONBOARD_LED_CMD_LENGTH);
     HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
     setOnboardHatchlingLEDs(HatchlingOnBoardLEDs, HATCHLING_SPI_LENGTH);
@@ -186,9 +186,9 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
     }
 
     // Infinite time filtering to reduce noise
-    Filtered_ID_Vals[3] = 0;//(Filtered_ID_Vals[3]*2 + (uint8_t)(uBit.io.P2.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
-    Filtered_ID_Vals[4] = 0;//(Filtered_ID_Vals[4]*2 + (uint8_t)(uBit.io.P1.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
-    Filtered_ID_Vals[5] = 0;//(Filtered_ID_Vals[5]*2 + (uint8_t)(uBit.io.P0.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
+    Filtered_ID_Vals[3] = (Filtered_ID_Vals[3]*2 + (uint8_t)(P2.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
+    Filtered_ID_Vals[4] = (Filtered_ID_Vals[4]*2 + (uint8_t)(P1.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
+    Filtered_ID_Vals[5] = (Filtered_ID_Vals[5]*2 + (uint8_t)(P0.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
 
     for(i = 3; i < GP_PORT_TOTAL; i++)
     {
@@ -240,15 +240,15 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
             commands[i+1] = GP_ID_vals[i];
             if((GP_ID_vals[i] > 26) || (GP_ID_vals[i] == 0))
             {
-                HatchlingOnBoardLEDs[i*3+1] = 0x06;
-                HatchlingOnBoardLEDs[i*3+2] = 0x06;
-                HatchlingOnBoardLEDs[i*3+3] = 0x06;
+                HatchlingOnBoardLEDs[i*3+1] = PortOffLEDColors[i][0];
+                HatchlingOnBoardLEDs[i*3+2] = PortOffLEDColors[i][1];
+                HatchlingOnBoardLEDs[i*3+3] = PortOffLEDColors[i][2];
             }
             else
             {
-                HatchlingOnBoardLEDs[i*3+1] = ledcolors[GP_ID_vals[i]%8][0];
-                HatchlingOnBoardLEDs[i*3+2] = ledcolors[GP_ID_vals[i]%8][1];
-                HatchlingOnBoardLEDs[i*3+3] = ledcolors[GP_ID_vals[i]%8][2];
+                HatchlingOnBoardLEDs[i*3+1] = PortOnLEDColors[i][0];
+                HatchlingOnBoardLEDs[i*3+2] = PortOnLEDColors[i][1];
+                HatchlingOnBoardLEDs[i*3+3] = PortOnLEDColors[i][2];
             }
             NRFX_DELAY_US(25); //Need a delay here or else the SPI seems to fail
         }
