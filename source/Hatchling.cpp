@@ -12,6 +12,9 @@ uint8_t HatchlingOnBoardLEDs[HATCHLING_ONBOARD_LED_CMD_LENGTH];
 uint8_t GP_ID_vals[GP_PORT_TOTAL] = {31, 31, 31, 31, 31, 31};
 uint16_t Filtered_ID_Vals[GP_PORT_TOTAL] = {0, 0, 0, 0, 0, 0};
 uint8_t stabilizeCounter = 0;
+uint8_t analogReadCounter = 0;
+uint8_t analogPortStabilityTracker[3] = {0,0,0};
+uint8_t previousAnalogVals[3] = {0,0,0};
 
 // Setting these pins to analog inputs so we can read the ID values
 MicroBitPin P0(MICROBIT_ID_IO_P0, MICROBIT_PIN_P0, PIN_CAPABILITY_ANALOG);
@@ -185,10 +188,91 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
         }
     }
 
-    // Infinite time filtering to reduce noise
-    Filtered_ID_Vals[3] = (Filtered_ID_Vals[3]*2 + (uint8_t)(P2.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
-    Filtered_ID_Vals[4] = (Filtered_ID_Vals[4]*2 + (uint8_t)(P1.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
-    Filtered_ID_Vals[5] = (Filtered_ID_Vals[5]*2 + (uint8_t)(P0.getAnalogValue()*0.37))/3; // multiply by 0.37 to make it the same as the SAMD readings (multiplier is 1.48, but SAMD is 8 bit and ubit is 10 bit)
+    uint16_t tempSensor;
+    // filtering to reduce noise, and reading the micro:bit analog values less frequently
+    // The analog input ports on the micro:bit seem to produce occasionally spurious values, so we need to filter them out
+    if(analogReadCounter == 0)
+    {
+        tempSensor = P2.getAnalogValue()*0.343; // Convert from 0-1023 to the same range of values that the SAMD will report
+        // In case you plug in the rotation servo and it is reading a bit high (could be 256 or 257)
+        if(tempSensor > 255)
+            tempSensor = 255;
+
+        // Check if your current reading is close to your previous values
+        if((tempSensor < (previousAnalogVals[0] + 5)) && (tempSensor > (previousAnalogVals[0] -5)))
+        {
+            analogPortStabilityTracker[0]++; 
+
+            // Only update the port value if values seem to be stable - 4 out of 4 readings in the same range
+            if(analogPortStabilityTracker[0] > 3)
+            {
+                // Apply a small IIT filter to the final value
+                Filtered_ID_Vals[3] = (Filtered_ID_Vals[3]*2 + tempSensor)/3; ;
+            //    uBit.serial.sendChar(Filtered_ID_Vals[3]);// Debug only
+            //    uBit.serial.sendChar(tempSensor);
+            }
+        }
+        // If even one value is not similar to the prior one, reset the stability counter
+        else
+        {
+            analogPortStabilityTracker[0] = 0;
+        }
+        previousAnalogVals[0] = tempSensor;
+   }
+    
+    if(analogReadCounter == 1)
+    {
+        tempSensor = P1.getAnalogValue()*0.343;
+        if(tempSensor > 255)
+            tempSensor = 255;
+
+        if((tempSensor < (previousAnalogVals[1] + 5)) && (tempSensor > (previousAnalogVals[1] -5)))
+        {
+            analogPortStabilityTracker[1]++;
+            if(analogPortStabilityTracker[1] > 3)
+            {
+                Filtered_ID_Vals[4] = (Filtered_ID_Vals[4]*2 + tempSensor)/3; 
+             //   uBit.serial.sendChar(Filtered_ID_Vals[4]); //Debug only
+             //   uBit.serial.sendChar(tempSensor);
+            }
+        }
+        else
+        {
+            analogPortStabilityTracker[1] = 0;
+        }
+        previousAnalogVals[1] = tempSensor;
+    }
+    
+    if(analogReadCounter == 2)
+    {
+        tempSensor = P0.getAnalogValue()*0.343;
+        if(tempSensor > 255)
+            tempSensor = 255;
+
+        if((tempSensor < (previousAnalogVals[2] + 5)) && (tempSensor > (previousAnalogVals[2] -5)))
+        {
+            analogPortStabilityTracker[2]++;
+            if(analogPortStabilityTracker[2] > 3)
+            {
+                Filtered_ID_Vals[5] = (Filtered_ID_Vals[5]*2 + tempSensor)/3; 
+            //    uBit.serial.sendChar(Filtered_ID_Vals[5]); //Debug only
+            //    uBit.serial.sendChar(tempSensor);
+                
+            //    uBit.serial.sendChar('\r');
+            //    uBit.serial.sendChar('\n');
+            }
+        }
+        else
+        {
+            analogPortStabilityTracker[2] = 0;
+        }
+        previousAnalogVals[2] = tempSensor;
+        analogReadCounter = 0;
+    }
+    else 
+    {
+        analogReadCounter++;
+    }
 
     for(i = 3; i < GP_PORT_TOTAL; i++)
     {
@@ -281,5 +365,11 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
 
     // get the battery value for further processing
     sensor_vals[2] = spi_sensors_only[17];
+
+    // Just to debug port values
+	/*for(i=14;i<17;i++)
+	{
+		sensor_vals[i] = Filtered_ID_Vals[i-11];
+	}*/
 
 }

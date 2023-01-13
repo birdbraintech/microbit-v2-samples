@@ -25,7 +25,8 @@ uint8_t bufferLength = 0;
 
 int16_t micSamples[MIC_SAMPLES]; // Holds 8 samples of microphone data to determine loudness
 uint8_t loudness; // Holds the loudness of microphone - the difference between the min and max of the 8 samples
-
+uint8_t prevLoudness; // Holds the previous loudness value
+uint8_t filteredLoudness; // Loudness value after filtering for spurious reports
 // Convenience function to read the command packet, returns false if it timed out
 bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length);
 
@@ -55,7 +56,11 @@ void send_ble_data()
         {
             loopCount = 0;
             if(v2report) {
+               prevLoudness = loudness;
                getLoudnessVal();
+               // Filtering the loudness value to prevent spurious values - seems to be needed for Hatchling
+               if((loudness < prevLoudness + 30) && (loudness > prevLoudness - 30))
+                    filteredLoudness = loudness;
             }
             assembleSensorData(); // assembles and sends a sensor packet
             // Used for testing the actual time between sensor packets
@@ -701,7 +706,7 @@ void assembleSensorData()
             }
             
             // Using the other byte for the sound level
-            sensor_vals[0] = loudness; // calculated in getLoudnessVal
+            sensor_vals[0] = filteredLoudness; // calculated in getLoudnessVal
             sensor_vals[1] = uBit.display.readLightLevel(); // Gets the ambient light level falling on the micro:bit display
 
             // Stuff battery report into 2 bits - this will need to be updated as the thresholds are wrong

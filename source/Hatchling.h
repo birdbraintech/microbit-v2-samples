@@ -20,11 +20,11 @@ static const uint8_t ledcolors[8][3] = {{MAX_BRIGHTNESS, 0, 0}, {MAX_BRIGHTNESS,
 
 // If the port is on, set to Blue/Yellow/Teal/Magenta/White/Orange in order from A-F
 static const uint8_t PortOnLEDColors[6][3] = {{0, 0, MAX_BRIGHTNESS}, {MAX_BRIGHTNESS, MAX_BRIGHTNESS, 0}, {0, MAX_BRIGHTNESS, MAX_BRIGHTNESS/2}, {MAX_BRIGHTNESS, 0, MAX_BRIGHTNESS},
-                                        {MAX_BRIGHTNESS, MAX_BRIGHTNESS, MAX_BRIGHTNESS}, {MAX_BRIGHTNESS, MAX_BRIGHTNESS/2, 0}};
+                                        {MAX_BRIGHTNESS, MAX_BRIGHTNESS, MAX_BRIGHTNESS}, {MAX_BRIGHTNESS, MAX_BRIGHTNESS/4, 0}};
 
 // If the port is off, set to dim versions of Blue/Yellow/Teal/Magenta/White/Orange in order from A-F
 static const uint8_t PortOffLEDColors[6][3] = {{0, 0, MIN_BRIGHTNESS}, {MIN_BRIGHTNESS, MIN_BRIGHTNESS, 0}, {0, MIN_BRIGHTNESS, MIN_BRIGHTNESS/2}, {MIN_BRIGHTNESS, 0, MIN_BRIGHTNESS},
-                                        {MIN_BRIGHTNESS, MIN_BRIGHTNESS, MIN_BRIGHTNESS}, {MIN_BRIGHTNESS, MIN_BRIGHTNESS, 0}};
+                                        {MIN_BRIGHTNESS, MIN_BRIGHTNESS, MIN_BRIGHTNESS}, {MIN_BRIGHTNESS, MIN_BRIGHTNESS/4, 0}};
 
 
 // Initializes the Hatchling, mostly setting the edge connector pins as we want
