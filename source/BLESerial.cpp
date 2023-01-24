@@ -100,10 +100,6 @@ void onConnected(MicroBitEvent)
 {
     bleConnected = true;
     playConnectSound();
-    /*if(whatAmI == A_HL)
-    {
-        displayConnectedLEDs();
-    }*/
 }
 
 void onDisconnected(MicroBitEvent)
@@ -710,15 +706,15 @@ void assembleSensorData()
             sensor_vals[1] = uBit.display.readLightLevel(); // Gets the ambient light level falling on the micro:bit display
 
             // Stuff battery report into 2 bits - this will need to be updated as the thresholds are wrong
-            if(sensor_vals[2] < BATT_THRESH2)
+            if(sensor_vals[2] < HL_BATT_THRESH2)
             {
                 sensor_vals[2] = 0; // red LED
             }
-            else if(sensor_vals[2] < BATT_THRESH1)
+            else if(sensor_vals[2] < HL_BATT_THRESH1)
             {
                 sensor_vals[2] = 1; // yellow LEDs
             }
-            else if(sensor_vals[2] < FULL_BATT)
+            else if(sensor_vals[2] < HL_FULL_BATT)
             {
                 sensor_vals[2] = 2; // 3 green LEDs
             }

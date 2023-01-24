@@ -54,10 +54,15 @@
 
 #define MIC_SAMPLES                               8
 
+// Finch battery thresholds
 #define FULL_BATT                                 100                          //All four tail LEDS are green above this
 #define BATT_THRESH1                              55							//Three tail LEDS are green above this
 #define BATT_THRESH2                              40							//Two Tail LEDS are yellow above this
-														//One Tail LED is red below BATT_THRESH2
+
+// Hatchling battery thresholds
+#define HL_FULL_BATT                                 228                           //All leds green
+#define HL_BATT_THRESH1                              211							//Three yellow leds below this
+#define HL_BATT_THRESH2                              194							//One red LED below this
 
 void bleSerialInit(ManagedString devName);  // Initializes the UART
 void bleSerialCommand(); // Checks what command (setAll, get firmware, etc) is coming over BLE, then acts as necessary

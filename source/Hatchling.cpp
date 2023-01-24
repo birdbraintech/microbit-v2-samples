@@ -37,9 +37,6 @@ void stopHatchling()
     memset(stopCommand, 0xFF, HATCHLING_SPI_LENGTH);
     stopCommand[0] = FINCH_HATCHLING_STOPALL;
     spiWrite(stopCommand, HATCHLING_SPI_LENGTH);
-    // Init the previous Hatchling LED command array to all 0s
-    memset(HatchlingOnBoardLEDs, 0, HATCHLING_ONBOARD_LED_CMD_LENGTH);
-    HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
 }
 
 // Sets all Hatchling LEDs
@@ -54,15 +51,6 @@ void setOnboardHatchlingLEDs(uint8_t commands[], uint8_t length)
          // setting the Hatchling LEDs
         spiWrite(commands, HATCHLING_SPI_LENGTH);
     }
-}
-
-// Sets hatchling LEDs to initial connection level
-void displayConnectedLEDs()
-{
-    // Right now just shows all white, update to make it display what is plugged in as well
-    memset(HatchlingOnBoardLEDs, 0x06, HATCHLING_ONBOARD_LED_CMD_LENGTH);
-    HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
-    setOnboardHatchlingLEDs(HatchlingOnBoardLEDs, HATCHLING_SPI_LENGTH);
 }
 
 // Sets hatchling LEDs to a color code based on mac address
