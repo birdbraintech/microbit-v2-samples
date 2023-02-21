@@ -125,7 +125,7 @@ void setHatchlingExternalNeopixelStrip(uint8_t commands[], uint8_t length)
     }
 }
 
-// Turns off the Finch - in case we haven't received anything over BLE for 10 minutes
+// Turns off the Hatchling - in case we haven't received anything over BLE for 10 minutes
 void turnOffHatchling()
 {
     uint8_t turnOffCommand[HATCHLING_SPI_LENGTH];
@@ -326,8 +326,9 @@ void arrangeHatchlingSensors(uint8_t (&spi_sensors_only)[HATCHLING_SPI_SENSOR_LE
         }
         setHatchlingPortStates(commands, HATCHLING_SPI_LENGTH);
         //NRFX_DELAY_US(250); 
-        HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
-        setOnboardHatchlingLEDs(HatchlingOnBoardLEDs, HATCHLING_SPI_LENGTH);
+        // This is now done on the SAMD side
+        //HatchlingOnBoardLEDs[0] = HATCHLING_SET_ONBOARD_LEDS;
+        //setOnboardHatchlingLEDs(HatchlingOnBoardLEDs, HATCHLING_SPI_LENGTH);
     }
     
 

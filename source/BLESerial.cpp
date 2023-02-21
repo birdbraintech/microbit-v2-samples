@@ -136,7 +136,7 @@ void sleepTimer()
     while(1)
     {
         fiber_sleep(60000); // wait one minute
-        if(whatAmI == A_FINCH)
+        if(whatAmI == A_FINCH || whatAmI == A_HL)
         {
             sleepCounter++;
             // Currently shuts down after ten minutes
@@ -147,7 +147,14 @@ void sleepTimer()
                     playDisconnectSound(); // play a sound to tell people we're turning off
                     playDisconnectWhenTimedOut = false;
                 }
-                turnOffFinch();
+                if(whatAmI == A_FINCH)
+                {
+                    turnOffFinch();
+                }
+                else
+                {
+                    turnOffHatchling();
+                }
             }
         }
     }
@@ -265,13 +272,13 @@ void bleSerialCommand()
         uint8_t commandCount = 0;
 
        // for debugging only, to inspect BLE packets
-        /*uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
+        uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
         for(int i = 0; i < bufferLength; i++)
         {
             uBit.serial.sendChar(ble_read_buff[i], SYNC_SLEEP);
         }
         uBit.serial.sendChar(0xEE, SYNC_SLEEP);
-        uBit.serial.sendChar(0xEE, SYNC_SLEEP); */
+        uBit.serial.sendChar(0xEE, SYNC_SLEEP); 
         while(commandCount < bufferLength)
         {
             sleepCounter = 0; // reset the sleep counter since we have received a command
@@ -521,8 +528,8 @@ void bleSerialCommand()
                         {
                             packetCommands[i] = ble_read_buff[i+commandCount];
                         }           
-                                        
-                        setOnboardHatchlingLEDs(packetCommands, HATCHLING_SPI_LENGTH); // sets all onboard LEDs          
+                        // This command was only used for testing, so commenting it out                
+                        //setOnboardHatchlingLEDs(packetCommands, HATCHLING_SPI_LENGTH); // sets all onboard LEDs          
                         commandCount += bytesUsed;
                     }
                     else {
