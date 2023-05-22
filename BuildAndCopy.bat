@@ -1,2 +1,2 @@
 python build.py
-copy MICROBIT.hex D:
+robocopy /z . D: "MICROBIT.hex"

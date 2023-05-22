@@ -45,7 +45,7 @@ void spiWrite(uint8_t* writeBuffer, uint8_t length)
         spi.write(writeBuffer[length-1]);
         //NRFX_DELAY_US(SS_WAIT);
         uBit.io.P16.setDigitalValue(1);
-        NRFX_DELAY_US(50); // Ensures we don't hammer the Finch or Hummingbird with SPI packets
+        NRFX_DELAY_US(50); // Ensures we don't hammer the Finch or Hummingbird or Hatchling with SPI packets
         spiActive = false;
     }
 }
@@ -98,6 +98,7 @@ void spiReadFinch(uint8_t (&readBuffer)[FINCH_SPI_SENSOR_LENGTH])
         }
         //NRFX_DELAY_US(SS_WAIT);
         uBit.io.P16.setDigitalValue(1);
+        NRFX_DELAY_US(50); // Ensures we don't hammer the Finch or Hummingbird or Hatchling with SPI packets
         spiActive = false;
     }
 }
@@ -125,6 +126,24 @@ void spiReadHatchling(uint8_t (&readBuffer)[HATCHLING_SPI_SENSOR_LENGTH])
         }
         //NRFX_DELAY_US(SS_WAIT);
         uBit.io.P16.setDigitalValue(1);
+        NRFX_DELAY_US(50); // Ensures we don't hammer the Finch or Hummingbird or Hatchling with SPI packets
+        // check if you actually received a reasonable return - the first byte should match the hatchling SAMD ID. If not, try again
+        while(readBuffer[0] != HATCHLING_SAMD_ID)
+        {
+            uBit.io.P16.setDigitalValue(0);
+            //NRFX_DELAY_US(SS_WAIT);
+            readBuffer[0] = spi.write(0xDE);
+            //NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
+            for(int i = 1; i < HATCHLING_SPI_SENSOR_LENGTH; i++)
+            {
+                readBuffer[i] = spi.write(0xFF);
+            //    NRFX_DELAY_US(WAIT_BETWEEN_BYTES);
+            }
+            //NRFX_DELAY_US(SS_WAIT);
+            uBit.io.P16.setDigitalValue(1);
+            NRFX_DELAY_US(50); // Ensures we don't hammer the Finch or Hummingbird or Hatchling with SPI packets            
+        }
+
         spiActive = false;
     }
 }
@@ -247,20 +266,21 @@ void printFirmwareResponse()
         uBit.io.P16.setDigitalValue(0);
         NRFX_DELAY_US(SS_WAIT);
         uint8_t commands[8] = {0xE0, 0xE1, 0xE2, 0xE3, 0xDE, 0xDF, 0x8C, 0xD6};
-        uint8_t readBuffer[19];
-        uint8_t writeBuffer[19] = {0xD0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0x0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0, 0xFF, 0x88, 0, 0xFF};
+        uint8_t readBuffer[21];
+        uint8_t writeBuffer[21] = {0xE0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0x0, 0xFF, 0, 0, 0xFF, 0xFF, 0, 0, 0xFF, 0x88, 0, 0xFF, 0, 0};
         readBuffer[0] = spi.write(commands[switchcmd]); // Special command to read firmware/hardware version for both Finch and HB
         NRFX_DELAY_US(10);//WAIT_BETWEEN_BYTES);
-        for(int i = rotate; i < 19; i++)
+        for(int i = 1; i < 21; i++)
         {
             readBuffer[i] = spi.write(writeBuffer[i]);
             NRFX_DELAY_US(10);//WAIT_BETWEEN_BYTES);
         }
+        /*
         for(int i = 1; i < rotate; i++)
         {
             readBuffer[i] = spi.write(writeBuffer[i]);
             NRFX_DELAY_US(10);//WAIT_BETWEEN_BYTES);
-        }
+        }*/
         /*if(rotate == 1)
             readBuffer[18] = spi.write(writeBuffer[18]);
         else
@@ -270,19 +290,20 @@ void printFirmwareResponse()
         uBit.io.P16.setDigitalValue(1);
         NRFX_DELAY_MS(1); // wait after reading firmware
 
-        for(int i =0; i < 19; i++)
+        for(int i =0; i < 21; i++)
         {
             uBit.serial.sendChar(readBuffer[i]);
         }
+        /*
         rotate+= 3;
         if(rotate > 16)
             rotate = 1;
         switchcmd++;
         if(switchcmd > 6)
             switchcmd = 0;
-
-        fiber_sleep(1000);
-
+        */
+        fiber_sleep(200);
+        
         /*for(int i = 0; i < 19; i++) {
             uBit.display.scrollAsync(readBuffer[i]);
             fiber_sleep(3500);

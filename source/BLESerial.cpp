@@ -25,8 +25,8 @@ uint8_t bufferLength = 0;
 
 int16_t micSamples[MIC_SAMPLES]; // Holds 8 samples of microphone data to determine loudness
 uint8_t loudness; // Holds the loudness of microphone - the difference between the min and max of the 8 samples
-uint8_t prevLoudness; // Holds the previous loudness value
-uint8_t filteredLoudness; // Loudness value after filtering for spurious reports
+//uint8_t prevLoudness; // Holds the previous loudness value
+//uint8_t filteredLoudness; // Loudness value after filtering for spurious reports
 // Convenience function to read the command packet, returns false if it timed out
 bool getCommands(uint8_t commands[], uint8_t startIndex, uint8_t length);
 
@@ -56,11 +56,11 @@ void send_ble_data()
         {
             loopCount = 0;
             if(v2report) {
-               prevLoudness = loudness;
+               //prevLoudness = loudness;
                getLoudnessVal();
-               // Filtering the loudness value to prevent spurious values - seems to be needed for Hatchling
-               if((loudness < prevLoudness + 30) && (loudness > prevLoudness - 30))
-                    filteredLoudness = loudness;
+               // Filtering the loudness value to prevent spurious values - seems to be needed for Hatchling v0.1
+               //if((loudness < prevLoudness + 30) && (loudness > prevLoudness - 30))
+               //filteredLoudness = loudness;
             }
             assembleSensorData(); // assembles and sends a sensor packet
             // Used for testing the actual time between sensor packets
@@ -272,13 +272,13 @@ void bleSerialCommand()
         uint8_t commandCount = 0;
 
        // for debugging only, to inspect BLE packets
-        uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
+       /* uBit.serial.sendChar(bufferLength, SYNC_SLEEP);
         for(int i = 0; i < bufferLength; i++)
         {
             uBit.serial.sendChar(ble_read_buff[i], SYNC_SLEEP);
         }
         uBit.serial.sendChar(0xEE, SYNC_SLEEP);
-        uBit.serial.sendChar(0xEE, SYNC_SLEEP); 
+        uBit.serial.sendChar(0xEE, SYNC_SLEEP); */
         while(commandCount < bufferLength)
         {
             sleepCounter = 0; // reset the sleep counter since we have received a command
@@ -541,12 +541,13 @@ void bleSerialCommand()
                     if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_SETALL_LENGTH))
                     {
                         bytesUsed = HATCHLING_SETALL_LENGTH; // 19 bytes
-                        uint8_t packetCommands[bytesUsed];
+                        uint8_t packetCommands[HATCHLING_SPI_LENGTH]; // 21 byte array since that's our SPI length
+                        memset(packetCommands, 0, HATCHLING_SPI_LENGTH);
                         for(int i = 0; i < bytesUsed; i++)
                         {
                             packetCommands[i] = ble_read_buff[i+commandCount];
                         }                             
-                        setAllHatchlingPorts(packetCommands, HATCHLING_SPI_LENGTH); // sets all onboard LEDs          
+                        setAllHatchlingPorts(packetCommands, HATCHLING_SPI_LENGTH); // sets the ports        
                         commandCount += bytesUsed;
                     }
                     else {
@@ -558,13 +559,13 @@ void bleSerialCommand()
                     if(whatAmI == A_HL && (bufferLength >= commandCount + HATCHLING_NEOPXL_SET_LENGTH))
                     {
                         bytesUsed = HATCHLING_NEOPXL_SET_LENGTH; // 14 bytes of the BLE buffer are used
-                        uint8_t packetCommands[HATCHLING_SPI_LENGTH]; // 19 byte array since that's our common SPI length
+                        uint8_t packetCommands[HATCHLING_SPI_LENGTH]; // 21 byte array since that's our common SPI length
                         memset(packetCommands, 0, HATCHLING_SPI_LENGTH);
                         for(int i = 0; i < bytesUsed; i++)
                         {
                             packetCommands[i] = ble_read_buff[i+commandCount];
                         }                             
-                        setHatchlingExternalNeopixelStrip(packetCommands, HATCHLING_SPI_LENGTH); // sets all onboard LEDs          
+                        setHatchlingExternalNeopixelStrip(packetCommands, HATCHLING_SPI_LENGTH); // sets external neopixels          
                         commandCount += bytesUsed;
                     }
                     else {
@@ -709,7 +710,7 @@ void assembleSensorData()
             }
             
             // Using the other byte for the sound level
-            sensor_vals[0] = filteredLoudness; // calculated in getLoudnessVal
+            sensor_vals[0] = loudness; //filteredLoudness; // calculated in getLoudnessVal
             sensor_vals[1] = uBit.display.readLightLevel(); // Gets the ambient light level falling on the micro:bit display
 
             // Stuff battery report into 2 bits - this will need to be updated as the thresholds are wrong

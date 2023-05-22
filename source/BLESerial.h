@@ -46,6 +46,7 @@
 
 #define HARDWARE_VERSION				          0x01
 
+// For BLE Sensor packets
 #define SENSOR_SEND_LENGTH                	      14
 #define V2_SENSOR_SEND_LENGTH             	      16
 #define FINCH_SENSOR_SEND_LENGTH                  20

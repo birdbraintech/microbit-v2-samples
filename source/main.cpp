@@ -19,7 +19,7 @@ void ble_mgmt_loop() {
     while(1) { // loop for ever
         bleSerialCommand();   // reads the serial command and then executes on that command
         fiber_sleep(1);
-        //printFirmwareResponse(); Only needed for debugging
+     //   printFirmwareResponse(); //Only needed for debugging
     }
 }
 

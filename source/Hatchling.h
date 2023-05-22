@@ -2,7 +2,7 @@
 #define HATCHLING_H
 
 
-#define HATCHLING_SPI_LENGTH 19
+#define HATCHLING_SPI_LENGTH 21
 #define HATCHLING_SETALL_LENGTH 19
 #define HATCHLING_NEOPXL_SET_LENGTH 14
 #define TOTAL_POSSIBLE_ACCESSORIES 26
@@ -11,7 +11,16 @@
 #define MAX_BRIGHTNESS 0x40 // Defines the maximum brightness of onboard LEDs
 #define MIN_BRIGHTNESS 0x0A // Defines a dim LED
 
-static const uint8_t id_values[TOTAL_POSSIBLE_ACCESSORIES] = {0, 254, 243, 234, 224, 214, 204, 195, 183, 171, 160, 149, 139, 127, 115, 105, 95, 86, 77, 68, 60, 51, 42, 34, 26, 13};
+//GP Port States
+#define ROTATION_SERVO					 1             //Rotation servo signals
+#define POSITION_SERVO					 6             //Position servo signals
+#define NEOPXL_SINGLE                    2             //Single Neopixel
+#define NEOPXL_STRIP                     3             //Strip of Neopixel
+#define ANALOG_SENSOR                    4             //Analog input
+#define DIGITAL_OUT                      5             //Software PWM Enabled Digital Output
+#define PORTOFF                          0             //Configured as digital input, start up state
+
+static const uint8_t id_values[TOTAL_POSSIBLE_ACCESSORIES] = {255, 10, 21, 32, 44, 56, 66, 77, 87, 97, 107, 118, 128, 138, 147, 156, 165, 174, 183, 192, 201, 210, 219, 228, 236, 245};
 
 
 // Arrays for some pre-set colors (in order: red, orange, yellow, green, teal, blue, purple, white) - used for making the LED color code
