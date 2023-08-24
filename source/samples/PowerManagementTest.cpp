@@ -24,10 +24,6 @@
     000,255,255,255,000\n\
     000,255,255,255,000\n";
 
-    static MicroBitImage dc(dc_emoji);
-    static MicroBitImage usb(usb_emoji);
-    static MicroBitImage battery(battery_emoji);
-
 void
 version_test()
 {
@@ -59,7 +55,8 @@ static void power_management_deep_sleep_until_button_b(MicroBitEvent)
 {
     DMESG("Entering Deep Sleep, wake on button B.");
     uBit.io.buttonB.setActiveLo();
-    uBit.power.deepSleep(uBit.io.buttonB);
+    uBit.io.buttonB.wakeOnActive(1);
+    uBit.power.deepSleep();
     DMESG("Leaving Deep Sleep...");
 }
 
@@ -68,7 +65,8 @@ static void power_management_deep_sleep_until_P0_high(MicroBitEvent)
     DMESG("Entering Deep Sleep, on P0 LO->HI");
     uBit.io.P0.setPull(PullMode::Down);
     uBit.io.P0.setActiveHi();
-    uBit.power.deepSleep(uBit.io.P0);
+    uBit.io.P0.wakeOnActive(1);
+    uBit.power.deepSleep();
 }
 
 void
@@ -118,20 +116,24 @@ usb_connection_test()
     while(1)
     {
         uBit.display.print(" ");
-        uBit.sleep(100);    
-        DMESG("POWER_CONSUMPTION:  %d", uBit.power.getPowerConsumption());
-        uBit.sleep(2000);    
+        uBit.sleep(100);
+        DMESG("POWER_CONSUMPTION:  %d", uBit.power.getPowerData().estimatedPowerConsumption);
+        uBit.sleep(2000);
 
         uBit.display.print("*");
-        uBit.sleep(100);    
-        DMESG("POWER_CONSUMPTION:  %d", uBit.power.getPowerConsumption());
-        uBit.sleep(2000);    
+        uBit.sleep(100);
+        DMESG("POWER_CONSUMPTION:  %d", uBit.power.getPowerData().estimatedPowerConsumption);
+        uBit.sleep(2000);
     }
 }
 
 void
 power_source_test()
 {
+    MicroBitImage dc(dc_emoji);
+    MicroBitImage usb(usb_emoji);
+    MicroBitImage battery(battery_emoji);
+
     while(1)
     {
         MicroBitPowerSource p = uBit.power.getPowerSource();
