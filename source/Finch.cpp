@@ -1,6 +1,6 @@
 #include "MicroBit.h"
 #include "BirdBrain.h"
-#include "SPIControl.h"
+#include "SpiControl.h"
 #include "BBMicroBit.h"
 #include "Finch.h"
 #include "BLESerial.h"
