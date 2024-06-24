@@ -19,7 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.6)
 
 # include additional cmake
 include(utils/cmake/JSONParser.cmake)
@@ -132,7 +132,7 @@ foreach(var ${device})
     string(REGEX MATCH "[^device\.cmake_definitions\.]([A-Z,a-z,0-9,_,]+)" CODAL_CMAKE_DEFINITION "${var}")
 
     set(${CODAL_CMAKE_DEFINITION} ${${var}})
- endforeach()
+endforeach()
 
 #define any additional symbols specified by the target.
 if("${device.definitions}" STRGREATER "")
@@ -182,12 +182,12 @@ if("${CODAL_DEFINITIONS}" STRGREATER "")
     file(WRITE "${EXTRA_INCLUDES_NEW_PATH}" ${CODAL_DEFINITIONS})
     configure_file(${EXTRA_INCLUDES_NEW_PATH} ${EXTRA_INCLUDES_PATH} COPYONLY)
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -include ${EXTRA_INCLUDES_PATH}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include ${EXTRA_INCLUDES_PATH}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -include \"${EXTRA_INCLUDES_PATH}\"")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include \"${EXTRA_INCLUDES_PATH}\"")
 endif()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${PLATFORM_INCLUDES_PATH}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${PLATFORM_INCLUDES_PATH}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I\"${PLATFORM_INCLUDES_PATH}\"")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I\"${PLATFORM_INCLUDES_PATH}\"")
 
 # a define for cmake if statements to detect if within the CODAL build environment
 set(CODAL_BUILD_SYSTEM TRUE)
@@ -232,13 +232,17 @@ endif()
 
 #finally, find sources and includes of the application, and create a target.
 RECURSIVE_FIND_DIR(INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.h")
+RECURSIVE_FIND_DIR(HPP_DIRS "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.hpp")
+list(APPEND INCLUDE_DIRS ${HPP_DIRS})
+
 # *.c?? only catches .cpp, not .c, so let's be precise
 RECURSIVE_FIND_FILE(SOURCE_FILES "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.cpp")
-
 RECURSIVE_FIND_FILE(S_FILES "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.s")
 RECURSIVE_FIND_FILE(C_FILES "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.c")
+RECURSIVE_FIND_FILE(CC_FILES "${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}" "*.cc")
 list(APPEND SOURCE_FILES ${S_FILES})
 list(APPEND SOURCE_FILES ${C_FILES})
+list(APPEND SOURCE_FILES ${CC_FILES})
 
 if("${SOURCE_FILES}" STREQUAL "")
     message(FATAL_ERROR "${BoldRed}No user application to build, please add a main.cpp at: ${PROJECT_SOURCE_DIR}/${CODAL_APP_SOURCE_DIR}${ColourReset}")
